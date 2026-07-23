@@ -1,0 +1,2245 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Codex do Leitor — RPG de Leitura</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,800&family=Manrope:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    /* ---- superfícies ---- */
+    --ink-950: #0B0A16;
+    --ink-900: #131022;
+    --ink-800: #1B1730;
+    --ink-700: #251F40;
+    --ink-600: #302850;
+
+    /* ---- identidade: pergaminho, ouro, azul profundo, roxo mágico ---- */
+    --parchment: #F4EAD4;
+    --parchment-dim: rgba(244,234,212,0.60);
+    --parchment-faint: rgba(244,234,212,0.34);
+
+    --gold: #E3BE6E;
+    --gold-strong: #F0D48C;
+    --gold-deep: #9C7A2E;
+
+    --sapphire: #34549E;
+    --sapphire-deep: #1B2C57;
+
+    --violet: #8A6BE8;
+    --violet-deep: #4B3894;
+
+    --ember: #DD8248;
+    --ember-deep: #7A452B;
+
+    --success: #55A67F;
+    --danger: #D2604C;
+
+    --line: rgba(244,234,212,0.09);
+    --line-strong: rgba(244,234,212,0.18);
+
+    --shadow-sm: 0 2px 8px rgba(4,3,12,0.28);
+    --shadow-md: 0 10px 28px rgba(4,3,12,0.38);
+    --shadow-lg: 0 20px 48px rgba(4,3,12,0.5);
+    --shadow-glow-gold: 0 0 0 1px rgba(227,190,110,0.25), 0 8px 24px rgba(227,190,110,0.12);
+
+    --radius-lg: 20px;
+    --radius-md: 14px;
+    --radius-sm: 11px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(120% 60% at 50% -10%, rgba(138,107,232,0.16) 0%, transparent 60%),
+      radial-gradient(100% 50% at 100% 0%, rgba(52,84,158,0.14) 0%, transparent 55%),
+      linear-gradient(180deg, var(--ink-900) 0%, var(--ink-950) 45%, #08070F 100%);
+    color: var(--parchment);
+    font-family: 'Manrope', sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+  }
+  #app{
+    width:100%;
+    max-width:430px;
+    min-height:100vh;
+    position:relative;
+    padding-bottom:96px;
+  }
+  h1,h2,h3,h4{
+    font-family:'Fraunces', serif;
+    letter-spacing:0.015em;
+    margin:0;
+    color: var(--parchment);
+    font-weight:600;
+  }
+  h2{ font-size:22px; letter-spacing:0.03em; }
+  .eyebrow{
+    font-family:'Space Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color: var(--gold);
+    opacity:0.9;
+  }
+  .screen{ padding: 22px 18px 10px; animation: fadeIn .3s ease; }
+  @keyframes fadeIn{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
+
+  /* ================= HERO — PERFIL + NÍVEL/XP ================= */
+  .hero-card{
+    position:relative;
+    background: linear-gradient(160deg, var(--ink-700) 0%, var(--ink-800) 55%, var(--ink-900) 100%);
+    border:1px solid var(--line-strong);
+    border-radius: var(--radius-lg);
+    padding:20px 18px 18px;
+    box-shadow: var(--shadow-lg);
+    overflow:hidden;
+  }
+  .hero-card::before{
+    content:''; position:absolute; top:-40%; right:-30%; width:70%; height:140%;
+    background: radial-gradient(circle, rgba(227,190,110,0.14) 0%, transparent 70%);
+    pointer-events:none;
+  }
+  .hero-top{ display:flex; align-items:center; gap:14px; position:relative; z-index:1; }
+  .avatar-frame{
+    position:relative; width:64px; height:64px; flex-shrink:0;
+    border-radius:50%;
+    padding:3px;
+    background: conic-gradient(from 180deg, var(--tier-color, var(--gold)), var(--parchment-faint) 50%, var(--tier-color, var(--gold)));
+    box-shadow: var(--shadow-md);
+  }
+  .avatar-frame::after{
+    content:''; position:absolute; inset:-3px; border-radius:50%;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
+  }
+  .avatar-frame img, .avatar-frame .avatar-fallback{
+    width:100%; height:100%; border-radius:50%; object-fit:cover; display:block;
+    background: var(--ink-900);
+  }
+  .avatar-fallback{ display:flex; align-items:center; justify-content:center; font-size:26px; }
+  .hero-info{ flex:1; min-width:0; }
+  .hero-info .name{ font-size:16.5px; font-weight:800; font-family:'Manrope',sans-serif; letter-spacing:0.01em; }
+  .hero-info .title{ font-family:'Space Mono', monospace; font-size:10.5px; letter-spacing:0.08em; color:var(--gold); margin-top:3px; text-transform:uppercase; }
+  .streak-pill{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background: linear-gradient(160deg, rgba(221,130,72,0.22), rgba(221,130,72,0.08));
+    border:1px solid var(--ember-deep);
+    border-radius:16px; padding:9px 12px; min-width:54px; box-shadow: var(--shadow-sm);
+  }
+  .streak-pill .flame{ font-size:18px; }
+  .streak-pill .num{ font-family:'Space Mono', monospace; font-weight:700; font-size:14px; margin-top:1px; }
+
+  .xp-hero{ position:relative; z-index:1; margin-top:16px; }
+  .xp-hero-labels{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+  .xp-hero-labels .lvl{ font-family:'Space Mono',monospace; font-size:11px; color:var(--parchment-dim); letter-spacing:0.06em; }
+  .xp-hero-labels .amt{ font-family:'Space Mono',monospace; font-size:11px; color:var(--gold); font-weight:700; }
+  .xp-track{
+    height:12px; border-radius:8px; background:rgba(0,0,0,0.42);
+    overflow:hidden; border:1px solid var(--line-strong); position:relative;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+  }
+  .xp-fill{
+    height:100%; border-radius:8px;
+    background:linear-gradient(90deg, var(--gold-deep), var(--gold) 55%, var(--gold-strong));
+    box-shadow: 0 0 12px rgba(227,190,110,0.55);
+    transition: width .6s cubic-bezier(.2,.8,.3,1);
+    position:relative;
+  }
+  .xp-fill::after{
+    content:''; position:absolute; inset:0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.35), transparent 60%);
+  }
+
+  /* ================= SEÇÕES ================= */
+  .section-title{ display:flex; align-items:center; justify-content:space-between; margin: 26px 0 12px;}
+  .section-title h3{ font-size:13.5px; letter-spacing:0.05em; text-transform:uppercase; color:var(--parchment-dim); font-family:'Space Mono',monospace; font-weight:700; }
+  .link-btn{ background:none; border:none; color:var(--gold); font-family:'Space Mono', monospace; font-size:11px; cursor:pointer; padding:4px; }
+
+  /* ================= CARDS (livros / geral) ================= */
+  .quest-card{
+    position:relative;
+    background: linear-gradient(155deg, var(--ink-700), var(--ink-800));
+    border:1px solid var(--line);
+    border-radius: var(--radius-md);
+    padding:16px;
+    margin-bottom:12px;
+    display:flex; gap:14px; align-items:center;
+    box-shadow: var(--shadow-md);
+  }
+  .quest-card .cover{
+    width:54px; height:76px; border-radius:8px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Fraunces', serif; font-weight:800; font-size:11px; text-align:center; padding:4px;
+    color:#1a1730; font-weight:700; line-height:1.1;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(0,0,0,0.15);
+    overflow:hidden;
+  }
+  .quest-card .cover img{ width:100%; height:100%; object-fit:cover; border-radius:5px; }
+  .quest-card .info{ flex:1; min-width:0; }
+  .quest-card .info .t{ font-weight:700; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .quest-card .info .a{ font-size:12px; color:var(--parchment-dim); margin-top:2px; }
+  .track{ height:7px; border-radius:6px; background:rgba(0,0,0,0.4); margin-top:9px; overflow:hidden; border:1px solid var(--line); }
+  .track-fill{ height:100%; border-radius:6px; background:linear-gradient(90deg, var(--sapphire-deep), var(--sapphire) 60%, #6E93D8); box-shadow: 0 0 8px rgba(52,84,158,0.5); }
+  .quest-card .meta{ font-family:'Space Mono', monospace; font-size:10.5px; color:var(--parchment-dim); margin-top:6px; }
+  .seal{
+    position:absolute; top:-9px; right:-7px;
+    background: linear-gradient(160deg, var(--gold-strong), var(--gold-deep)); color:#2a2210; font-family:'Space Mono', monospace;
+    font-weight:800; font-size:11px; border-radius:50%; width:36px; height:36px;
+    display:flex; align-items:center; justify-content:center;
+    border:2px solid var(--ink-950); box-shadow:0 4px 10px rgba(0,0,0,0.45);
+  }
+
+  /* ================= BOTÕES ================= */
+  .btn{
+    border:none; border-radius:14px; padding:13px 16px; font-family:'Manrope',sans-serif;
+    font-weight:700; font-size:14px; cursor:pointer; min-height:46px;
+    transition: transform .12s ease, filter .12s ease;
+  }
+  .btn:active{ transform: scale(0.97); }
+  .btn-primary{
+    background: linear-gradient(135deg, var(--ember), #F0985C);
+    color:#2A1707; width:100%; box-shadow: 0 8px 20px rgba(221,130,72,0.32);
+  }
+  .btn-ghost{ background: transparent; border:1px solid var(--line-strong); color:var(--parchment); }
+  .btn-secondary{ background: var(--ink-600); color:var(--parchment); border:1px solid var(--line-strong); }
+  .btn-small{ padding:9px 13px; font-size:12px; min-height:38px; border-radius:10px; }
+  .btn-danger{ background: rgba(210,96,76,0.16); color:#f0a99c; border:1px solid var(--danger); }
+
+  /* ================= METAS / MISSÕES ================= */
+  .goal-row{ display:flex; gap:10px; }
+  .goal-ring{
+    flex:1; background: linear-gradient(155deg, var(--ink-700), var(--ink-800));
+    border:1px solid var(--line); border-radius: var(--radius-md);
+    padding:16px 12px; text-align:center; box-shadow: var(--shadow-sm);
+  }
+  .goal-ring .big{ font-family:'Space Mono', monospace; font-size:21px; font-weight:700; color:var(--parchment); }
+  .goal-ring .cap{ font-size:10.5px; color:var(--parchment-dim); margin-top:3px; letter-spacing:0.02em; }
+  .goal-ring .mini-track{ height:6px; border-radius:4px; background:rgba(0,0,0,0.4); margin-top:10px; overflow:hidden;}
+  .goal-ring .mini-fill{ height:100%; background: linear-gradient(90deg, var(--violet-deep), var(--violet));}
+
+  .bars{ display:flex; align-items:flex-end; gap:9px; height:96px; padding: 8px 4px 0; }
+  .bar-col{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; }
+  .bar{ width:100%; border-radius:6px 6px 3px 3px; background: linear-gradient(180deg, var(--gold-strong), var(--gold-deep)); min-height:3px; box-shadow:0 0 8px rgba(227,190,110,0.25); }
+  .bar-label{ font-size:9px; color:var(--parchment-dim); margin-top:7px; font-family:'Space Mono',monospace; letter-spacing:0.04em; }
+
+  .streak-calendar{ display:grid; grid-template-columns:repeat(7,1fr); gap:7px; }
+  .streak-day{
+    aspect-ratio:1; border-radius:9px; background:rgba(0,0,0,0.32); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center; font-size:13px;
+  }
+  .streak-day.read{ background:linear-gradient(155deg, rgba(221,130,72,0.28), rgba(221,130,72,0.12)); border-color:var(--ember-deep); }
+  .streak-day.today{ box-shadow:0 0 0 2px var(--gold) inset; }
+
+  .empty-state{ text-align:center; padding:34px 14px; color:var(--parchment-dim); border:1px dashed var(--line-strong); border-radius:var(--radius-md); }
+  .empty-state .icon{ font-size:32px; margin-bottom:10px; }
+
+  /* ================= BOTTOM NAV ================= */
+  .bottom-nav{
+    position:fixed; bottom:0; left:50%; transform:translateX(-50%);
+    width:100%; max-width:430px;
+    background: rgba(11,10,22,0.88); backdrop-filter: blur(14px);
+    border-top:1px solid var(--line-strong);
+    display:flex; justify-content:space-around; padding:10px 4px calc(10px + env(safe-area-inset-bottom));
+    z-index:50;
+  }
+  .nav-btn{
+    background:none; border:none; color:var(--parchment-dim); display:flex; flex-direction:column;
+    align-items:center; gap:4px; font-size:9px; font-family:'Space Mono',monospace; cursor:pointer;
+    padding:7px 10px; border-radius:12px; min-width:48px; letter-spacing:0.02em;
+  }
+  .nav-btn .ic{ font-size:19px; }
+  .nav-btn.active{ color: var(--gold); background: rgba(227,190,110,0.10); box-shadow: inset 0 0 0 1px rgba(227,190,110,0.2); }
+
+  /* ================= FORMS / MODAL ================= */
+  .field{ margin-bottom:13px; }
+  .field label{ display:block; font-size:11.5px; color:var(--parchment-dim); margin-bottom:6px; font-family:'Space Mono',monospace; letter-spacing:0.03em; }
+  .field input, .field select{
+    width:100%; padding:12px 13px; border-radius:12px; border:1px solid var(--line-strong);
+    background: var(--ink-950); color:var(--parchment); font-family:'Manrope',sans-serif; font-size:14px;
+  }
+  .field input:focus, .field select:focus{ outline:2px solid var(--gold); outline-offset:1px; }
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(6,5,14,0.78); z-index:100;
+    display:flex; align-items:flex-end; justify-content:center;
+  }
+  .modal-sheet{
+    width:100%; max-width:430px; background: linear-gradient(180deg, var(--ink-800), var(--ink-900)); border-radius:26px 26px 0 0;
+    padding:20px 18px calc(22px + env(safe-area-inset-bottom)); max-height:85vh; overflow-y:auto;
+    border-top:1px solid var(--line-strong); box-shadow:0 -12px 48px rgba(0,0,0,0.55);
+    animation: slideUp .24s ease;
+  }
+  @keyframes slideUp{ from{ transform:translateY(34px); opacity:0;} to{ transform:translateY(0); opacity:1;} }
+  .modal-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .modal-head h3{ font-size:17px; }
+  .modal-close{ background:none; border:none; color:var(--parchment-dim); font-size:20px; cursor:pointer; }
+
+  .tabs-row{ display:flex; gap:7px; margin-bottom:14px; }
+  .tab-chip{
+    flex:1; text-align:center; padding:9px 6px; border-radius:12px; font-size:11.5px;
+    background: var(--ink-950); border:1px solid var(--line-strong); color:var(--parchment-dim); cursor:pointer;
+    font-family:'Space Mono',monospace; letter-spacing:0.03em;
+  }
+  .tab-chip.active{ background: linear-gradient(155deg, rgba(227,190,110,0.18), rgba(227,190,110,0.06)); color: var(--gold); border-color: var(--gold-deep); }
+
+  .badge-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:11px; }
+  .badge{
+    background: linear-gradient(155deg, var(--ink-700), var(--ink-800)); border:1px solid var(--line); border-radius:16px; padding:14px 6px;
+    text-align:center; box-shadow: var(--shadow-sm);
+  }
+  .badge.locked{ opacity:0.32; filter:grayscale(1); box-shadow:none; }
+  .badge .ic{ font-size:25px; }
+  .badge .n{ font-size:9.5px; margin-top:7px; font-weight:700; letter-spacing:0.01em; }
+
+  .celebrate-backdrop{
+    position:fixed; inset:0; background:rgba(6,5,14,0.85); z-index:200;
+    display:flex; align-items:center; justify-content:center; padding:30px;
+  }
+  .celebrate-card{
+    background: linear-gradient(165deg, var(--ink-600), var(--ink-800)); border:1px solid var(--gold);
+    border-radius:26px; padding:32px 24px; text-align:center; max-width:320px;
+    box-shadow: 0 0 70px rgba(227,190,110,0.4), var(--shadow-lg);
+    animation: pop .38s cubic-bezier(.2,1.4,.4,1);
+  }
+  @keyframes pop{ from{ transform:scale(0.7); opacity:0;} to{ transform:scale(1); opacity:1;} }
+  .celebrate-card .big-ic{ font-size:46px; }
+
+  .toast{
+    position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:150;
+    background: linear-gradient(155deg, var(--ink-700), var(--ink-800)); border:1px solid var(--gold-deep); color:var(--parchment);
+    padding:11px 18px; border-radius:14px; font-size:12px; font-family:'Space Mono',monospace;
+    box-shadow: var(--shadow-lg); animation: fadeIn .2s ease; max-width:90%;
+  }
+  ::-webkit-scrollbar{ width:0; height:0; }
+  .row{ display:flex; gap:10px; }
+  .row > *{ flex:1; }
+  .muted{ color:var(--parchment-dim); font-size:12px; }
+  .stat-line{ display:flex; justify-content:space-between; padding:11px 2px; border-bottom:1px solid var(--line); font-size:13px;}
+  .stat-line b{ font-family:'Space Mono',monospace; color:var(--gold); font-weight:700; }
+  .genre-bar-row{ margin-bottom:12px; }
+  .genre-bar-track{ height:8px; background:rgba(0,0,0,0.4); border-radius:5px; overflow:hidden; margin-top:5px; border:1px solid var(--line);}
+  .genre-bar-fill{ height:100%; background:linear-gradient(90deg, var(--violet-deep), var(--violet)); box-shadow:0 0 8px rgba(138,107,232,0.4); }
+
+  .cover-large{
+    width:100px; height:138px; border-radius:10px; flex-shrink:0; overflow:hidden;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Fraunces', serif; font-weight:800; font-size:14px; text-align:center; padding:6px;
+    color:#1a1730; font-weight:700; line-height:1.1;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(0,0,0,0.15);
+  }
+  .cover-large img{ width:100%; height:100%; object-fit:cover; }
+  .cover-upload-row{ display:flex; gap:14px; align-items:flex-start; margin-top:14px; }
+  .cover-upload-btn{
+    background:var(--ink-950); border:1px dashed var(--line-strong); color:var(--parchment-dim);
+    border-radius:12px; padding:9px 11px; font-size:11px; font-family:'Space Mono',monospace;
+    cursor:pointer; text-align:center; display:block; margin-top:9px;
+  }
+
+  /* ================= UPLOAD DE PDF ================= */
+  .upload-zone{
+    border:2px dashed var(--line-strong); border-radius:var(--radius-md);
+    padding:28px 16px; text-align:center; cursor:pointer; margin-bottom:14px;
+    background: linear-gradient(155deg, var(--ink-700), var(--ink-800));
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .upload-zone.dragover{ border-color:var(--gold); background: linear-gradient(155deg, rgba(227,190,110,0.14), var(--ink-800)); }
+  .upload-zone .ic{ font-size:30px; }
+  .upload-zone .t{ font-weight:700; margin-top:8px; font-size:13px; }
+  .upload-zone .s{ font-size:11px; color:var(--parchment-dim); margin-top:4px; }
+  .upload-spinner{
+    width:28px; height:28px; border-radius:50%; border:3px solid var(--line-strong); border-top-color:var(--gold);
+    margin:0 auto; animation:spin .8s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .pdf-tag{
+    position:absolute; top:6px; left:6px; z-index:2; background:rgba(52,84,158,0.85); color:#fff;
+    font-family:'Space Mono',monospace; font-size:8.5px; font-weight:700; padding:2px 6px; border-radius:6px;
+    letter-spacing:0.04em;
+  }
+
+  /* ================= LEITOR DE PDF ================= */
+  #reader-overlay{
+    position:fixed; inset:0; background:var(--ink-950); z-index:300;
+    display:flex; flex-direction:column; color:var(--parchment); font-family:'Manrope',sans-serif;
+    animation: readerEnter .45s cubic-bezier(.22,1,.36,1);
+    transform-origin:center center;
+  }
+  @keyframes readerEnter{
+    from{ opacity:0; transform:scale(.95) translateY(14px); }
+    to{ opacity:1; transform:scale(1) translateY(0); }
+  }
+  .reader-page-wrap{ animation: pageFadeIn .35s ease both; }
+  @keyframes pageFadeIn{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:translateY(0); } }
+  .reader-topbar{
+    display:flex; align-items:center; gap:8px; padding:10px 10px;
+    background: rgba(11,10,22,0.94); border-bottom:1px solid var(--line-strong); backdrop-filter: blur(10px);
+    z-index:2; flex-shrink:0;
+  }
+  .reader-topbar .rt-title{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:700; }
+  .reader-topbar .rt-page{ font-family:'Space Mono',monospace; font-size:10.5px; color:var(--parchment-dim); white-space:nowrap; }
+  .reader-icon-btn{
+    background:none; border:none; color:var(--parchment); font-size:17px; cursor:pointer;
+    width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .reader-icon-btn:active{ background:rgba(255,255,255,0.1); }
+  .reader-progress-track{ height:3px; background:rgba(255,255,255,0.08); flex-shrink:0; }
+  .reader-progress-fill{ height:100%; background:linear-gradient(90deg, var(--gold-deep), var(--gold)); transition:width .25s ease; }
+
+  .reader-body{ flex:1; display:flex; min-height:0; }
+  .reader-scroll{
+    flex:1; overflow-y:auto; overflow-x:hidden; padding:14px 0 60px; scroll-behavior:auto;
+    display:flex; flex-direction:column; align-items:center; gap:14px; background:#0a0a0a;
+  }
+  .reader-page-wrap{ position:relative; background:#fff; box-shadow:0 8px 30px rgba(0,0,0,0.6); flex-shrink:0; }
+  .reader-page-wrap canvas{ display:block; }
+  .reader-text-layer{
+    position:absolute; inset:0; overflow:hidden; line-height:1;
+  }
+  .reader-text-layer span{ position:absolute; color:transparent; cursor:text; white-space:pre; transform-origin:0 0; }
+  .reader-text-layer span::selection{ background: rgba(52,84,158,0.4); }
+  .reader-hl{ background: rgba(227,190,110,0.45) !important; border-radius:2px; }
+  .reader-page-number{
+    position:absolute; bottom:6px; right:8px; font-family:'Space Mono',monospace; font-size:10px;
+    color:rgba(0,0,0,0.35); z-index:3;
+  }
+
+  .reader-sidebar{
+    width:0; overflow:hidden; background: var(--ink-900); border-left:1px solid var(--line-strong);
+    transition: width .2s ease; display:flex; flex-direction:column; flex-shrink:0;
+  }
+  .reader-sidebar.open{ width:78vw; max-width:300px; }
+  .reader-sidebar-tabs{ display:flex; border-bottom:1px solid var(--line-strong); flex-shrink:0; }
+  .reader-sidebar-tabs button{
+    flex:1; background:none; border:none; color:var(--parchment-dim); font-size:10px; padding:11px 2px;
+    font-family:'Space Mono',monospace; cursor:pointer; border-bottom:2px solid transparent;
+  }
+  .reader-sidebar-tabs button.active{ color:var(--gold); border-bottom-color:var(--gold); }
+  .reader-sidebar-content{ flex:1; overflow-y:auto; padding:12px; }
+  .reader-thumb{
+    display:flex; gap:10px; align-items:center; padding:8px; border-radius:10px; cursor:pointer; margin-bottom:6px;
+  }
+  .reader-thumb:hover, .reader-thumb.current{ background: rgba(227,190,110,0.12); }
+  .reader-thumb .ph{
+    width:38px; height:52px; display:flex; align-items:center; justify-content:center;
+    font-family:'Space Mono',monospace; font-size:11px; color:#333; border-radius:4px; background:#fff; flex-shrink:0;
+  }
+  .reader-thumb .n{ font-size:11px; font-family:'Space Mono',monospace; color:var(--parchment-dim); }
+  .reader-toc-item{ padding:10px 6px; font-size:12.5px; cursor:pointer; border-bottom:1px solid var(--line); }
+  .reader-toc-item:hover{ color:var(--gold); }
+  .reader-empty-side{ color:var(--parchment-dim); font-size:11.5px; text-align:center; padding:22px 8px; line-height:1.5; }
+
+  .reader-bottombar{
+    display:flex; align-items:center; justify-content:center; gap:14px; padding:10px;
+    background: rgba(11,10,22,0.94); border-top:1px solid var(--line-strong); flex-shrink:0;
+  }
+  .reader-zoom-label{ font-family:'Space Mono',monospace; font-size:11px; min-width:38px; text-align:center; }
+
+  .selection-menu{
+    position:fixed; z-index:310; background: var(--ink-700); border:1px solid var(--gold-deep);
+    border-radius:12px; box-shadow:var(--shadow-lg); display:flex; overflow:hidden;
+  }
+  .selection-menu button{
+    background:none; border:none; color:var(--parchment); font-size:11px; padding:10px 12px; cursor:pointer;
+    font-family:'Manrope',sans-serif; white-space:nowrap; border-right:1px solid var(--line);
+  }
+  .selection-menu button:last-child{ border-right:none; }
+  .selection-menu button:active{ background:rgba(255,255,255,0.12); }
+
+  .note-item{
+    background: linear-gradient(155deg, var(--ink-700), var(--ink-800)); border:1px solid var(--line);
+    border-radius:12px; padding:11px; margin-bottom:9px;
+  }
+  .note-item .meta{ display:flex; justify-content:space-between; font-size:10px; color:var(--parchment-dim); font-family:'Space Mono',monospace; margin-bottom:6px; }
+  .note-item .txt{ font-size:12.5px; line-height:1.5; }
+  .note-item .actions{ display:flex; gap:8px; margin-top:8px; }
+  .note-item .actions button{ background:none; border:none; color:var(--gold); font-size:10.5px; cursor:pointer; font-family:'Space Mono',monospace; }
+  .reader-note-input{
+    width:100%; padding:10px; border-radius:10px; border:1px solid var(--line-strong);
+    background:var(--ink-950); color:var(--parchment); font-family:'Manrope',sans-serif; font-size:13px; resize:vertical;
+  }
+
+  /* ================= HERO STATS (Estatísticas) ================= */
+  .hero-stats-row{ display:flex; gap:10px; }
+  .hero-stat{
+    flex:1; background: linear-gradient(160deg, var(--ink-700), var(--ink-800));
+    border:1px solid var(--line-strong); border-radius: var(--radius-md);
+    padding:16px 10px; text-align:center; box-shadow: var(--shadow-md);
+  }
+  .hero-stat .v{ font-family:'Space Mono',monospace; font-size:22px; font-weight:700; color:var(--gold); }
+  .hero-stat .l{ font-size:10px; color:var(--parchment-dim); margin-top:4px; letter-spacing:0.02em; }
+
+  /* ================= BIBLIOTECA — GRADE DE CAPAS COM MICROINTERAÇÕES ================= */
+  .library-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:24px 14px; }
+
+  .lib-card{
+    cursor:pointer; perspective:1100px; -webkit-tap-highlight-color:transparent;
+    --ry:0deg; --rx:0deg; --lx:50%; --ly:50%;
+  }
+  .lib-book{
+    position:relative; transform-style:preserve-3d; will-change:transform;
+    transition: transform .3s cubic-bezier(.22,1,.36,1), filter .3s ease;
+    transform: translateY(0) scale(1) rotateX(0deg) rotateY(0deg);
+  }
+  .lib-card.near .lib-book{ filter:brightness(1.02); }
+  .lib-card:hover .lib-book, .lib-card.tilting .lib-book{
+    transform: translateY(-6px) scale(1.05) rotateX(var(--rx)) rotateY(var(--ry));
+    filter:brightness(1.05);
+    transition: transform .16s ease-out, filter .2s ease;
+  }
+  .lib-card.opening .lib-book{
+    transition: transform .42s cubic-bezier(.4,0,.2,1), opacity .3s ease .12s;
+    transform: translateY(-12px) scale(1.16) translateZ(60px);
+  }
+  .lib-card.opening{ opacity:0; transition: opacity .3s ease .16s; }
+
+  /* respiração muito sutil quando ocioso, para transmitir "vida" */
+  @keyframes bookBreathe{
+    0%,100%{ transform:scale(1); filter:brightness(1); }
+    50%{ transform:scale(1.007); filter:brightness(1.025); }
+  }
+  .lib-card:not(:hover):not(.near):not(.opening) .lib-cover{ animation: bookBreathe 34s ease-in-out infinite; }
+
+  /* espessura de páginas empilhadas atrás da capa, com textura sutil de folhas */
+  .lib-book::before, .lib-book::after{
+    content:''; position:absolute; top:2px; bottom:2px; right:1px; left:5px;
+    background:
+      repeating-linear-gradient(180deg, rgba(0,0,0,0.045) 0px, rgba(0,0,0,0.045) 1px, transparent 1px, transparent 3px),
+      linear-gradient(90deg, #ded6c2 0%, #f4efe1 55%, #ded6c2 100%);
+    border-radius:0 3px 3px 0;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.08) inset;
+    transition: transform .34s cubic-bezier(.22,1,.36,1) .05s, opacity .3s ease;
+    opacity:0; z-index:0;
+  }
+  .lib-book::before{ transform:translateX(0) translateZ(-7px); }
+  .lib-book::after{ transform:translateX(0) translateZ(-3.5px); }
+  .lib-card:hover .lib-book::before{ opacity:1; transform:translateX(6px) translateZ(-7px); }
+  .lib-card:hover .lib-book::after{ opacity:1; transform:translateX(3px) translateZ(-3.5px); }
+
+  /* lombada revelada conforme a capa gira, dando volume real ao livro */
+  .lib-spine{
+    position:absolute; left:-5px; top:2px; bottom:2px; width:5px; z-index:0;
+    background: linear-gradient(90deg, rgba(0,0,0,0.6), rgba(0,0,0,0.1));
+    transform: rotateY(88deg) translateZ(2.5px); transform-origin:right center;
+    opacity:0; transition: opacity .3s ease .22s; border-radius:2px 0 0 2px;
+  }
+  .lib-card:hover .lib-spine{ opacity:1; }
+
+  .lib-cover{
+    position:relative; width:100%; aspect-ratio:2/3; border-radius:12px; overflow:hidden;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Fraunces', serif; font-weight:800; font-size:13px; text-align:center; padding:8px;
+    color:#1a1730; line-height:1.15; z-index:1;
+    transform-origin:left center; transform-style:preserve-3d;
+    box-shadow: 0 10px 22px rgba(0,0,0,0.42), inset 0 0 0 1px rgba(0,0,0,0.15);
+    transition: transform .38s cubic-bezier(.22,1,.36,1) .26s, box-shadow .34s ease .1s, filter .3s ease;
+  }
+  .lib-card:hover .lib-cover{
+    transform: rotateY(-13deg) translateZ(4px);
+    box-shadow: -14px 18px 34px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(0,0,0,0.15);
+    filter:brightness(1.06) saturate(1.08);
+  }
+  /* reflexo elegante que acompanha a posição do cursor (iluminação dinâmica) */
+  .lib-cover .lib-shine{
+    position:absolute; inset:0; z-index:3; pointer-events:none; border-radius:inherit;
+    background: radial-gradient(circle at var(--lx) var(--ly), rgba(255,255,255,0.4), transparent 45%);
+    opacity:0; transition: opacity .25s ease;
+  }
+  .lib-card:hover .lib-cover .lib-shine, .lib-card.tilting .lib-cover .lib-shine{ opacity:1; }
+
+  .lib-cover img{ width:100%; height:100%; object-fit:cover; position:absolute; inset:0; }
+  .lib-cover .lib-seal{
+    position:absolute; bottom:6px; right:6px; z-index:2;
+    background: rgba(11,10,22,0.78); color:var(--gold); font-family:'Space Mono',monospace;
+    font-size:10px; font-weight:700; padding:3px 7px; border-radius:8px; border:1px solid var(--gold-deep);
+    transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+  }
+  .lib-card:hover .lib-cover .lib-seal{ transform: scale(1.18) translateY(-1px); }
+
+  .lib-cover .lib-track{
+    position:absolute; left:0; right:0; bottom:0; height:4px; background:rgba(0,0,0,0.5); z-index:2;
+    transition: height .25s ease, box-shadow .25s ease;
+  }
+  .lib-card:hover .lib-cover .lib-track{ height:6px; box-shadow: 0 0 10px rgba(227,190,110,0.6); }
+  .lib-cover .lib-track-fill{
+    height:100%; background:linear-gradient(90deg, var(--sapphire-deep), var(--sapphire));
+    transition: filter .25s ease;
+  }
+  .lib-card:hover .lib-cover .lib-track-fill{ filter:brightness(1.35); }
+
+  .lib-title{
+    font-size:12.5px; font-weight:700; margin-top:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    transition: font-size .25s ease, color .25s ease; transform-origin:left center;
+  }
+  .lib-author{
+    font-size:10.5px; color:var(--parchment-dim); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    transition: color .25s ease;
+  }
+  .lib-card:hover .lib-title{ font-size:13.5px; color:var(--gold); }
+  .lib-card:hover .lib-author{ color:var(--parchment); }
+
+  /* glow de seleção (último livro aberto) */
+  .lib-card.selected .lib-cover{
+    box-shadow: 0 0 0 2px var(--gold), 0 0 24px rgba(227,190,110,0.45), 0 10px 22px rgba(0,0,0,0.42);
+  }
+
+  /* moldura dourada permanente para livros concluídos + celebração na primeira vez */
+  .lib-card.completed .lib-cover{
+    box-shadow: 0 0 0 2px var(--gold), 0 0 20px rgba(227,190,110,0.35), 0 10px 22px rgba(0,0,0,0.42);
+  }
+  .lib-card.just-completed .lib-cover{ animation: completeBurst 1.2s ease; }
+  @keyframes completeBurst{
+    0%{ box-shadow:0 0 0 0 rgba(227,190,110,0.95), 0 10px 22px rgba(0,0,0,0.42); }
+    45%{ box-shadow:0 0 0 16px rgba(227,190,110,0.22), 0 10px 22px rgba(0,0,0,0.42); }
+    100%{ box-shadow:0 0 0 2px var(--gold), 0 0 20px rgba(227,190,110,0.35), 0 10px 22px rgba(0,0,0,0.42); }
+  }
+  .lib-card.just-completed .lib-particle{
+    position:absolute; width:4px; height:4px; border-radius:50%; background:var(--gold);
+    left:50%; top:50%; opacity:0; pointer-events:none;
+    animation: particleBurst 1s ease-out forwards;
+  }
+  @keyframes particleBurst{
+    0%{ opacity:1; transform:translate(0,0) scale(1); }
+    100%{ opacity:0; transform:translate(var(--px),var(--py)) scale(0.3); }
+  }
+
+  /* ================= EXCLUIR LIVRO — BOTÃO E DISSOLUÇÃO ================= */
+  .card-delete-btn{
+    position:absolute; top:-8px; right:-8px; z-index:6; width:26px; height:26px; border-radius:50%;
+    background: var(--ink-800); border:1px solid var(--line-strong); color:var(--parchment-dim);
+    display:flex; align-items:center; justify-content:center; font-size:12px; cursor:pointer;
+    opacity:0; transform:scale(0.75); transition: opacity .2s ease, transform .2s ease, background .2s ease, color .2s ease, border-color .2s ease;
+  }
+  .lib-card:hover .card-delete-btn, .quest-card:hover .card-delete-btn{ opacity:1; transform:scale(1); }
+  .card-delete-btn:hover{ background:var(--danger); color:#fff; border-color:var(--danger); }
+
+  .lib-dust, .quest-dust{
+    position:absolute; width:3px; height:3px; border-radius:50%; background:var(--parchment-dim);
+    left:50%; top:50%; opacity:0; pointer-events:none;
+    animation: dustBurst .75s ease-out forwards;
+  }
+  @keyframes dustBurst{
+    0%{ opacity:.9; transform:translate(0,0) scale(1); }
+    100%{ opacity:0; transform:translate(var(--px),var(--py)) scale(0.15); }
+  }
+  .lib-card.removing{ pointer-events:none; }
+  .lib-card.removing .lib-book{
+    animation: dissolveBook .62s cubic-bezier(.4,0,.2,1) forwards;
+  }
+  .lib-card.removing .lib-title, .lib-card.removing .lib-author{
+    animation: dissolveText .5s ease forwards;
+  }
+  .lib-card.removing .card-delete-btn{ opacity:0; }
+  @keyframes dissolveBook{
+    0%{ transform:scale(1) translateY(0); opacity:1; filter:blur(0px); }
+    55%{ transform:scale(1.06) translateY(-5px); opacity:.5; filter:blur(1.5px); }
+    100%{ transform:scale(.68) translateY(8px); opacity:0; filter:blur(5px); }
+  }
+  @keyframes dissolveText{ to{ opacity:0; transform:translateY(4px); } }
+
+  .quest-card.removing{ pointer-events:none; }
+  .quest-card.removing{
+    animation: dissolveQuestCard .6s cubic-bezier(.4,0,.2,1) forwards;
+  }
+  @keyframes dissolveQuestCard{
+    0%{ transform:scale(1); opacity:1; filter:blur(0px); }
+    55%{ transform:scale(1.03); opacity:.5; filter:blur(1.5px); }
+    100%{ transform:scale(.85) translateX(10px); opacity:0; filter:blur(5px); }
+  }
+
+  /* ================= PERFIL — FICHA DE PERSONAGEM ================= */
+  .char-sheet{
+    position:relative; text-align:center; padding:28px 18px 22px;
+    background: linear-gradient(165deg, var(--ink-700) 0%, var(--ink-800) 60%, var(--ink-900) 100%);
+    border:1px solid var(--line-strong); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+    overflow:hidden;
+  }
+  .char-sheet::before{
+    content:''; position:absolute; top:-30%; left:50%; transform:translateX(-50%); width:80%; height:120%;
+    background: radial-gradient(circle, rgba(227,190,110,0.14) 0%, transparent 70%); pointer-events:none;
+  }
+  .char-avatar-frame{
+    position:relative; width:96px; height:96px; margin:0 auto; border-radius:50%; padding:4px;
+    background: conic-gradient(from 180deg, var(--tier-color, var(--gold)), var(--parchment-faint) 50%, var(--tier-color, var(--gold)));
+    box-shadow: var(--shadow-lg); z-index:1;
+  }
+  .char-avatar-frame img, .char-avatar-frame .avatar-fallback{
+    width:100%; height:100%; border-radius:50%; object-fit:cover; display:block; background:var(--ink-900);
+  }
+  .char-avatar-frame .avatar-fallback{ display:flex; align-items:center; justify-content:center; font-size:38px; }
+  .char-name{ font-size:19px; font-weight:800; margin-top:14px; position:relative; z-index:1; }
+  .char-title{ font-family:'Space Mono',monospace; font-size:11px; color:var(--gold); letter-spacing:0.1em; text-transform:uppercase; margin-top:4px; position:relative; z-index:1; }
+  .char-hint{ font-size:11px; color:var(--parchment-faint); margin-top:8px; position:relative; z-index:1; }
+
+  .stat-block-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+  .stat-block{
+    background: linear-gradient(155deg, var(--ink-700), var(--ink-800)); border:1px solid var(--line);
+    border-radius: var(--radius-sm); padding:14px; text-align:center; box-shadow: var(--shadow-sm);
+  }
+  .stat-block .v{ font-family:'Space Mono',monospace; font-size:19px; font-weight:700; color:var(--parchment); }
+  .stat-block .l{ font-size:10px; color:var(--parchment-dim); margin-top:4px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* =========================================================
+   ESTADO / PERSISTÊNCIA
+   ========================================================= */
+const STORAGE_KEY = 'codexLeitorState_v1';
+
+function defaultState(){
+  return {
+    profile:{
+      name:'Aventureiro(a)',
+      avatar:null,
+      xp:0,
+      streak:0,
+      lastReadDate:null,
+      dailyGoalPages:20,
+      monthlyGoalBooks:2,
+      yearlyGoalBooks:12,
+      streakFreezes:1,
+      soundEnabled:true,
+      longestStreak:0,
+    },
+    books:[],
+    logs:[],
+    achievements:[], // {id, unlockedAt}
+    ui:{ tab:'dashboard', libraryFilter:'lendo', libraryView:'grid' }
+  };
+}
+
+let state = loadState();
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return defaultState();
+    const parsed = JSON.parse(raw);
+    return Object.assign(defaultState(), parsed, {
+      profile: Object.assign(defaultState().profile, parsed.profile||{}),
+      ui: Object.assign(defaultState().ui, parsed.ui||{})
+    });
+  }catch(e){ return defaultState(); }
+}
+function saveState(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  catch(e){ console.error('Falha ao salvar estado', e); }
+}
+
+/* =========================================================
+   REGRAS DE JOGO — XP, NÍVEL, CONQUISTAS
+   ========================================================= */
+function levelFromXP(xp){
+  let level=1, remaining=xp, needed=level*100;
+  while(remaining>=needed){ remaining-=needed; level++; needed=level*100; }
+  return { level, xpIntoLevel:remaining, xpNeeded:needed };
+}
+function levelTitle(level){
+  if(level>=11) return 'Mestre das Letras';
+  if(level>=7) return 'Bibliófilo';
+  if(level>=4) return 'Leitor Dedicado';
+  return 'Aprendiz';
+}
+function tierColor(level){
+  if(level>=11) return '#D8B54C';
+  if(level>=7) return '#C7CEDB';
+  if(level>=4) return '#C98A4B';
+  return '#8B6BD1';
+}
+
+const ACHIEVEMENTS = [
+  { id:'first_book', name:'Primeira Aventura', desc:'Concluiu o primeiro livro', icon:'🏅',
+    check: s => s.books.filter(b=>b.status==='concluido').length>=1 },
+  { id:'five_books', name:'Colecionador de Histórias', desc:'Concluiu 5 livros', icon:'📚',
+    check: s => s.books.filter(b=>b.status==='concluido').length>=5 },
+  { id:'streak7', name:'Chama Acesa', desc:'7 dias seguidos de leitura', icon:'🔥',
+    check: s => s.profile.streak>=7 },
+  { id:'streak30', name:'Guardião da Chama', desc:'30 dias seguidos de leitura', icon:'⚡',
+    check: s => s.profile.streak>=30 },
+  { id:'three_genres', name:'Explorador de Mundos', desc:'Concluiu livros de 3 gêneros diferentes', icon:'🗺️',
+    check: s => new Set(s.books.filter(b=>b.status==='concluido').map(b=>b.genre)).size>=3 },
+  { id:'big_book', name:'Caçador de Gigantes', desc:'Concluiu um livro de mais de 400 páginas', icon:'🐉',
+    check: s => s.books.some(b=>b.status==='concluido' && b.pages>400) },
+];
+
+function checkAchievements(){
+  const unlockedIds = state.achievements.map(a=>a.id);
+  const newlyUnlocked = [];
+  ACHIEVEMENTS.forEach(ach=>{
+    if(!unlockedIds.includes(ach.id) && ach.check(state)){
+      state.achievements.push({ id:ach.id, unlockedAt: todayStr() });
+      newlyUnlocked.push(ach);
+    }
+  });
+  return newlyUnlocked;
+}
+
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function daysBetween(a,b){ return Math.round((new Date(b)-new Date(a))/86400000); }
+
+const STREAK_MILESTONES = [7,14,30,60,100,365];
+
+function registerStreak(){
+  const today = todayStr();
+  if(state.profile.lastReadDate === today) return;
+  const wasStreak = state.profile.streak||0;
+
+  if(state.profile.lastReadDate){
+    const diff = daysBetween(state.profile.lastReadDate, today);
+    if(diff===1){
+      state.profile.streak = wasStreak+1;
+    } else if(diff===2 && state.profile.streakFreezes>0){
+      // usa um congelamento para não perder a ofensiva por 1 dia perdido
+      state.profile.streakFreezes -= 1;
+      state.profile.streak = wasStreak+1;
+      window._pendingStreakFreezeUsed = true;
+    } else {
+      state.profile.streak = 1;
+    }
+  } else {
+    state.profile.streak = 1;
+  }
+  state.profile.lastReadDate = today;
+  state.profile.longestStreak = Math.max(state.profile.longestStreak||0, state.profile.streak);
+
+  // a cada 7 dias de ofensiva ativa, ganha um congelamento (máx. 2 guardados)
+  if(state.profile.streak>0 && state.profile.streak%7===0){
+    state.profile.streakFreezes = Math.min(2, state.profile.streakFreezes+1);
+  }
+  if(STREAK_MILESTONES.includes(state.profile.streak)){
+    window._pendingStreakMilestone = state.profile.streak;
+  }
+}
+
+function addXP(amount){
+  const before = levelFromXP(state.profile.xp).level;
+  state.profile.xp += amount;
+  const after = levelFromXP(state.profile.xp).level;
+  return after>before ? after : null;
+}
+
+/* =========================================================
+   SOM — EFEITOS SONOROS (Web Audio API, sem arquivos externos)
+   ========================================================= */
+function getAudioCtx(){
+  if(!window._actx){
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return null;
+    window._actx = new AC();
+  }
+  if(window._actx.state==='suspended') window._actx.resume();
+  return window._actx;
+}
+function playTone(freq, start, duration, type, gainStart){
+  if(!state.profile.soundEnabled) return;
+  const ctx = getAudioCtx();
+  if(!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type||'sine';
+  osc.frequency.value = freq;
+  const t0 = ctx.currentTime+start;
+  gain.gain.setValueAtTime(0.0001, t0);
+  gain.gain.exponentialRampToValueAtTime(gainStart||0.15, t0+0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0+duration);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(t0);
+  osc.stop(t0+duration+0.02);
+}
+function playRegisterSound(){
+  // pequeno "brilho" satisfatório ao registrar a leitura, tipo ganhar moeda/XP
+  playTone(659.25, 0, 0.10, 'triangle', 0.16);
+  playTone(987.77, 0.06, 0.16, 'triangle', 0.13);
+}
+function playLevelUpSound(){
+  // sequência ascendente e triunfante
+  [523.25,659.25,783.99,1046.50].forEach((f,i)=>playTone(f, i*0.09, 0.28, 'triangle', 0.17));
+}
+function playAchievementSound(){
+  playTone(587.33, 0, 0.14, 'sine', 0.15);
+  playTone(739.99, 0.10, 0.14, 'sine', 0.15);
+  playTone(987.77, 0.20, 0.32, 'sine', 0.18);
+}
+function playStreakSound(){
+  playTone(392.00, 0, 0.10, 'sawtooth', 0.10);
+  playTone(523.25, 0.07, 0.10, 'sawtooth', 0.12);
+  playTone(659.25, 0.14, 0.22, 'sawtooth', 0.13);
+}
+function toggleSound(){
+  state.profile.soundEnabled = !state.profile.soundEnabled;
+  if(state.profile.soundEnabled) playRegisterSound();
+  render();
+}
+
+/* =========================================================
+   RENDER — CONTROLE GERAL
+   ========================================================= */
+const app = document.getElementById('app');
+
+function render(){
+  const tab = state.ui.tab;
+  let html = '';
+  if(tab==='dashboard') html = renderDashboard();
+  else if(tab==='library') html = renderLibrary();
+  else if(tab==='wishlist') html = renderWishlist();
+  else if(tab==='stats') html = renderStats();
+  else if(tab==='profile') html = renderProfile();
+  app.innerHTML = html + renderBottomNav();
+  saveState();
+  if(tab==='library') initLibraryTilt();
+}
+
+function renderBottomNav(){
+  const tabs = [
+    {id:'dashboard', ic:'🏰', label:'Início'},
+    {id:'library', ic:'📚', label:'Livros'},
+    {id:'wishlist', ic:'✨', label:'Desejos'},
+    {id:'stats', ic:'📊', label:'Stats'},
+    {id:'profile', ic:'🧙', label:'Perfil'},
+  ];
+  return `<div class="bottom-nav">${tabs.map(t=>`
+    <button class="nav-btn ${state.ui.tab===t.id?'active':''}" onclick="goTab('${t.id}')">
+      <span class="ic">${t.ic}</span><span>${t.label}</span>
+    </button>`).join('')}</div>`;
+}
+function goTab(id){ state.ui.tab = id; render(); }
+
+/* =========================================================
+   DASHBOARD
+   ========================================================= */
+function renderDashboard(){
+  const lvl = levelFromXP(state.profile.xp);
+  const color = tierColor(lvl.level);
+  const active = state.books.filter(b=>b.status==='lendo');
+  const todayLogs = state.logs.filter(l=>l.date===todayStr());
+  const pagesToday = todayLogs.reduce((s,l)=>s+l.pages,0);
+  const goalPct = Math.min(100, Math.round(pagesToday/Math.max(1,state.profile.dailyGoalPages)*100));
+
+  const monthStr = todayStr().slice(0,7);
+  const booksThisMonth = state.books.filter(b=>b.status==='concluido' && (b.endDate||'').slice(0,7)===monthStr).length;
+  const pagesThisMonth = state.logs.filter(l=>l.date.slice(0,7)===monthStr).reduce((s,l)=>s+l.pages,0);
+
+  const last7 = last7Days().map(d=>{
+    const p = state.logs.filter(l=>l.date===d).reduce((s,l)=>s+l.pages,0);
+    return {d,p};
+  });
+  const maxP = Math.max(1, ...last7.map(x=>x.p));
+
+  const nearLevelUp = lvl.xpNeeded - lvl.xpIntoLevel <= 20;
+
+  return `
+  <div class="screen">
+    <div class="hero-card" style="--tier-color:${color}">
+      <div class="hero-top">
+        ${avatarHTML(64)}
+        <div class="hero-info">
+          <div class="name">${escapeHTML(state.profile.name)}</div>
+          <div class="title">Nível ${lvl.level} · ${levelTitle(lvl.level)}</div>
+        </div>
+        <div class="streak-pill">
+          <div class="flame">🔥</div>
+          <div class="num">${state.profile.streak}</div>
+        </div>
+      </div>
+      <div class="xp-hero">
+        <div class="xp-hero-labels">
+          <span class="lvl">PROGRESSO DO NÍVEL</span>
+          <span class="amt">${lvl.xpIntoLevel} / ${lvl.xpNeeded} XP</span>
+        </div>
+        <div class="xp-track"><div class="xp-fill" style="width:${Math.round(lvl.xpIntoLevel/lvl.xpNeeded*100)}%"></div></div>
+      </div>
+      ${nearLevelUp ? `<div class="muted" style="margin-top:10px; font-size:11px; color:var(--gold); font-family:'Space Mono',monospace; position:relative; z-index:1;">⚡ Faltam ${lvl.xpNeeded-lvl.xpIntoLevel} XP para o próximo nível!</div>` : ''}
+    </div>
+
+    <div class="section-title"><h3>Livro atual</h3><button class="link-btn" onclick="openAddBookModal('lendo')">+ novo livro</button></div>
+    ${active.length===0 ? emptyState('📖','Nenhum livro em andamento. Comece uma nova jornada!') :
+      active.map(bookCardHTML).join('')}
+    <button class="btn btn-primary" style="margin-top:6px;" onclick="openRegisterModal()">Registrar leitura de hoje</button>
+
+    <div class="section-title"><h3>Missões de hoje</h3></div>
+    <div class="goal-row">
+      <div class="goal-ring">
+        <div class="big">${pagesToday}/${state.profile.dailyGoalPages}</div>
+        <div class="cap">páginas hoje</div>
+        <div class="mini-track"><div class="mini-fill" style="width:${goalPct}%"></div></div>
+      </div>
+      <div class="goal-ring">
+        <div class="big">${booksThisMonth}</div>
+        <div class="cap">livros este mês</div>
+      </div>
+      <div class="goal-ring">
+        <div class="big">${pagesThisMonth}</div>
+        <div class="cap">páginas no mês</div>
+      </div>
+    </div>
+
+    <div class="section-title"><h3>Ofensiva</h3><span class="muted">❄️ ${state.profile.streakFreezes} congelamento(s)</span></div>
+    <div class="quest-card" style="display:block;">
+      <div class="streak-calendar">
+        ${last14Days().map(d=>{
+          const read = state.logs.some(l=>l.date===d);
+          const isToday = d===todayStr();
+          return `<div class="streak-day ${read?'read':''} ${isToday?'today':''}">${read?'🔥':''}</div>`;
+        }).join('')}
+      </div>
+      <div class="muted" style="margin-top:9px; font-size:11px;">Ganhe um congelamento a cada 7 dias seguidos — ele salva sua ofensiva se você perder 1 dia.</div>
+    </div>
+
+    <div class="section-title"><h3>Estatísticas rápidas</h3></div>
+    <div class="quest-card" style="display:block;">
+      <div class="bars">
+        ${last7.map(x=>`
+          <div class="bar-col">
+            <div class="bar" style="height:${Math.max(4, x.p/maxP*80)}px" title="${x.p} páginas"></div>
+            <div class="bar-label">${weekdayShort(x.d)}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function weekdayShort(dateStr){
+  const days = ['dom','seg','ter','qua','qui','sex','sáb'];
+  return days[new Date(dateStr+'T12:00:00').getDay()];
+}
+function last7Days(){
+  const arr=[];
+  for(let i=6;i>=0;i--){
+    const d = new Date();
+    d.setDate(d.getDate()-i);
+    arr.push(d.toISOString().slice(0,10));
+  }
+  return arr;
+}
+function last14Days(){
+  const arr=[];
+  for(let i=13;i>=0;i--){
+    const d = new Date();
+    d.setDate(d.getDate()-i);
+    arr.push(d.toISOString().slice(0,10));
+  }
+  return arr;
+}
+function emptyState(icon, text){
+  return `<div class="empty-state"><div class="icon">${icon}</div><div>${text}</div></div>`;
+}
+
+function bookCardHTML(b){
+  const pct = Math.min(100, Math.round((b.currentPage/b.pages)*100));
+  const remaining = Math.max(0, b.pages-b.currentPage);
+  const coverInner = b.cover ? `<img src="${b.cover}">` : initials(b.title);
+  return `
+  <div class="quest-card" id="questcard-${b.id}" onclick="openBook('${b.id}')">
+    <button class="card-delete-btn" onclick="deleteBookAnimated('${b.id}', event)">✕</button>
+    <div class="seal">${pct}%</div>
+    <div class="cover" style="background:${coverColor(b.title)}; position:relative;">${b.source==='pdf'?'<div class="pdf-tag">PDF</div>':''}${coverInner}</div>
+    <div class="info">
+      <div class="t">${escapeHTML(b.title)}</div>
+      <div class="a">${escapeHTML(b.author||'Autor desconhecido')}</div>
+      <div class="track"><div class="track-fill" style="width:${pct}%"></div></div>
+      <div class="meta">${b.status==='concluido' ? 'Concluído' : `faltam ${remaining} páginas`}</div>
+    </div>
+  </div>`;
+}
+function coverColor(seed){
+  const colors = ['#E2793C','#D8B54C','#8B6BD1','#5C9274','#C1543F','#7C93C9'];
+  let h=0; for(const c of seed) h+=c.charCodeAt(0);
+  return colors[h%colors.length];
+}
+function initials(title){
+  return title.split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+}
+function escapeHTML(str){
+  return String(str||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function avatarHTML(size){
+  const lvl = levelFromXP(state.profile.xp).level;
+  if(state.profile.avatar){
+    return `<div class="avatar-frame" style="width:${size}px;height:${size}px;--tier-color:${tierColor(lvl)}"><img src="${state.profile.avatar}"></div>`;
+  }
+  return `<div class="avatar-frame" style="width:${size}px;height:${size}px;--tier-color:${tierColor(lvl)}"><div class="avatar-fallback">🧙</div></div>`;
+}
+
+/* =========================================================
+   BIBLIOTECA
+   ========================================================= */
+function renderLibrary(){
+  const filter = state.ui.libraryFilter;
+  const view = state.ui.libraryView || 'grid';
+  const list = state.books.filter(b=>b.status===filter);
+  return `
+  <div class="screen">
+    <div class="section-title" style="margin-top:0;"><h2 style="text-transform:none; font-size:22px; letter-spacing:0.03em; font-family:'Fraunces',serif;">Biblioteca</h2>
+      <div class="row" style="flex:0 0 auto; gap:6px;">
+        <button class="btn btn-small ${view==='grid'?'btn-primary':'btn-ghost'}" onclick="setLibraryView('grid')">Estante</button>
+        <button class="btn btn-small ${view==='list'?'btn-primary':'btn-ghost'}" onclick="setLibraryView('list')">Lista</button>
+      </div>
+    </div>
+
+    <div class="upload-zone" id="upload-zone"
+      ondragover="event.preventDefault(); this.classList.add('dragover')"
+      ondragleave="this.classList.remove('dragover')"
+      ondrop="event.preventDefault(); this.classList.remove('dragover'); handlePdfDrop(event)"
+      onclick="document.getElementById('pdf-file-input').click()">
+      <div id="upload-zone-inner">
+        <div class="ic">📤</div>
+        <div class="t">Arraste um PDF aqui ou toque para escolher</div>
+        <div class="s">Vira um livro na sua estante, com leitura direto no app</div>
+      </div>
+    </div>
+    <input type="file" id="pdf-file-input" accept="application/pdf,.pdf" style="display:none" onchange="handlePdfInputChange(event)">
+
+    <div class="tabs-row">
+      ${tabChip('lendo','Lendo')}${tabChip('concluido','Concluídos')}${tabChip('desejo','Desejos')}
+    </div>
+    <button class="btn btn-secondary" style="width:100%; margin-bottom:14px;" onclick="openAddBookModal('${filter}')">+ Adicionar livro manualmente</button>
+    ${list.length===0 ? emptyState('📖','Nada por aqui ainda.') :
+      view==='grid' ? `<div class="library-grid">${list.map(libCardHTML).join('')}</div>` : list.map(bookCardHTML).join('')}
+  </div>`;
+}
+function libCardHTML(b){
+  const pct = Math.min(100, Math.round((b.currentPage/b.pages)*100));
+  const coverInner = b.cover ? `<img src="${b.cover}">` : initials(b.title);
+  const selected = b.id===lastOpenedBookId ? ' selected' : '';
+  const completed = b.status==='concluido' ? ' completed' : '';
+  const justCompleted = window._justCompletedBookId===b.id ? ' just-completed' : '';
+  const particles = justCompleted ? Array.from({length:10}).map(()=>{
+    const angle = Math.random()*Math.PI*2, dist = 40+Math.random()*50;
+    const px = Math.round(Math.cos(angle)*dist), py = Math.round(Math.sin(angle)*dist);
+    return `<div class="lib-particle" style="--px:${px}px; --py:${py}px; animation-delay:${(Math.random()*0.15).toFixed(2)}s;"></div>`;
+  }).join('') : '';
+  return `
+  <div class="lib-card${selected}${completed}${justCompleted}" id="libcard-${b.id}" onclick="openBookAnimated('${b.id}', this)">
+    <button class="card-delete-btn" onclick="deleteBookAnimated('${b.id}', event)">✕</button>
+    <div class="lib-book">
+      <div class="lib-spine"></div>
+      <div class="lib-cover" style="background:${coverColor(b.title)}">
+        ${b.source==='pdf'?'<div class="pdf-tag">PDF</div>':''}
+        ${coverInner}
+        <div class="lib-shine"></div>
+        ${b.status==='concluido' ? `<div class="lib-seal">✓ lido</div>` : `<div class="lib-seal">${pct}%</div>`}
+        <div class="lib-track"><div class="lib-track-fill" style="width:${pct}%"></div></div>
+      </div>
+      ${particles}
+    </div>
+    <div class="lib-title">${escapeHTML(b.title)}</div>
+    <div class="lib-author">${escapeHTML(b.author||'')}</div>
+  </div>`;
+}
+/* =========================================================
+   BIBLIOTECA — INCLINAÇÃO 3D E LUZ DINÂMICA (SEGUE O CURSOR)
+   ========================================================= */
+let _tiltRAF = null;
+function initLibraryTilt(){
+  const grid = document.querySelector('.library-grid');
+  if(!grid) return;
+  grid.addEventListener('mousemove', onLibraryMouseMove);
+  grid.addEventListener('mouseleave', onLibraryMouseLeave);
+}
+function onLibraryMouseMove(evt){
+  if(_tiltRAF) return;
+  const clientX = evt.clientX, clientY = evt.clientY;
+  _tiltRAF = requestAnimationFrame(()=>{
+    _tiltRAF = null;
+    document.querySelectorAll('.library-grid .lib-card').forEach(card=>{
+      const r = card.getBoundingClientRect();
+      const cx = r.left+r.width/2, cy = r.top+r.height/2;
+      const dist = Math.hypot(clientX-cx, clientY-cy);
+      card.classList.toggle('near', dist<140 && dist>=0);
+      const inside = clientX>=r.left && clientX<=r.right && clientY>=r.top && clientY<=r.bottom;
+      if(inside){
+        const px = (clientX-r.left)/r.width;
+        const py = (clientY-r.top)/r.height;
+        card.style.setProperty('--ry', ((px-0.5)*22).toFixed(2)+'deg');
+        card.style.setProperty('--rx', ((0.5-py)*14).toFixed(2)+'deg');
+        card.style.setProperty('--lx', (px*100).toFixed(1)+'%');
+        card.style.setProperty('--ly', (py*100).toFixed(1)+'%');
+        card.classList.add('tilting');
+      } else {
+        card.classList.remove('tilting');
+      }
+    });
+  });
+}
+function onLibraryMouseLeave(){
+  document.querySelectorAll('.library-grid .lib-card').forEach(card=>{
+    card.classList.remove('near','tilting');
+  });
+}
+
+function tabChip(id,label){
+  return `<div class="tab-chip ${state.ui.libraryFilter===id?'active':''}" onclick="setLibraryFilter('${id}')">${label}</div>`;
+}
+function setLibraryFilter(id){ state.ui.libraryFilter=id; render(); }
+function setLibraryView(v){ state.ui.libraryView=v; render(); }
+
+let _pendingNewCover = null;
+
+function openAddBookModal(defaultStatus){
+  _pendingNewCover = null;
+  showModal(`
+    <div class="modal-head"><h3>Adicionar livro</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="cover-upload-row">
+      <div class="cover-large" id="f-cover-preview" style="background:${coverColor('novo')}">📷</div>
+      <div style="flex:1;">
+        <div class="muted">Capa do livro (opcional)</div>
+        <label class="cover-upload-btn">
+          Escolher da galeria
+          <input type="file" accept="image/*" style="display:none" onchange="handleNewBookCover(event)">
+        </label>
+      </div>
+    </div>
+    <div class="field" style="margin-top:14px;"><label>Título</label><input id="f-title" placeholder="Ex: O Nome do Vento"></div>
+    <div class="field"><label>Autor</label><input id="f-author" placeholder="Ex: Patrick Rothfuss"></div>
+    <div class="row">
+      <div class="field"><label>Total de páginas</label><input id="f-pages" type="number" min="1" placeholder="320"></div>
+      <div class="field"><label>Gênero</label><input id="f-genre" placeholder="Fantasia"></div>
+    </div>
+    <div class="field"><label>Status inicial</label>
+      <select id="f-status">
+        <option value="lendo" ${defaultStatus==='lendo'?'selected':''}>Lendo agora</option>
+        <option value="desejo" ${defaultStatus==='desejo'?'selected':''}>Lista de desejos</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="submitAddBook()">Salvar livro</button>
+  `);
+}
+function handleNewBookCover(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  cropCoverImage(file, function(dataUrl){
+    _pendingNewCover = dataUrl;
+    const preview = document.getElementById('f-cover-preview');
+    if(preview) preview.innerHTML = `<img src="${dataUrl}">`;
+  });
+}
+function cropCoverImage(file, callback){
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = function(){
+      const w = 300, h = 420; // proporção retrato padrão de capa
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      const srcRatio = img.width/img.height, dstRatio = w/h;
+      let sx=0, sy=0, sw=img.width, sh=img.height;
+      if(srcRatio > dstRatio){ sw = img.height*dstRatio; sx = (img.width-sw)/2; }
+      else { sh = img.width/dstRatio; sy = (img.height-sh)/2; }
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+      callback(canvas.toDataURL('image/jpeg', 0.88));
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function submitAddBook(){
+  const title = document.getElementById('f-title').value.trim();
+  const author = document.getElementById('f-author').value.trim();
+  const pages = parseInt(document.getElementById('f-pages').value)||0;
+  const genre = document.getElementById('f-genre').value.trim()||'Geral';
+  const status = document.getElementById('f-status').value;
+  if(!title || pages<=0){ alertToast('Preencha título e número de páginas.'); return; }
+  state.books.push({
+    id: 'b'+Date.now(),
+    title, author, pages, genre, status,
+    cover: _pendingNewCover,
+    currentPage: 0,
+    startDate: status==='lendo'? todayStr() : null,
+    endDate: null,
+    source: 'manual'
+  });
+  _pendingNewCover = null;
+  closeModal();
+  render();
+  alertToast('Livro adicionado à sua estante!');
+}
+
+let lastOpenedBookId = null;
+function openBook(id){
+  const b = state.books.find(x=>x.id===id);
+  if(!b) return;
+  if(b.source==='pdf') openReader(id);
+  else openBookDetail(id);
+}
+function openBookAnimated(id, cardEl){
+  lastOpenedBookId = id;
+  if(cardEl){
+    cardEl.classList.add('opening');
+    setTimeout(()=>openBook(id), 380);
+  } else {
+    openBook(id);
+  }
+}
+function openBookDetail(id){
+  const b = state.books.find(x=>x.id===id);
+  if(!b) return;
+  const pct = Math.min(100, Math.round((b.currentPage/b.pages)*100));
+  const bookLogs = state.logs.filter(l=>l.bookId===id).slice().reverse();
+  const coverInner = b.cover ? `<img src="${b.cover}">` : initials(b.title);
+  showModal(`
+    <div class="modal-head"><h3>${escapeHTML(b.title)}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="cover-upload-row">
+      <div class="cover-large" id="d-cover-preview" style="background:${coverColor(b.title)}">${coverInner}</div>
+      <div style="flex:1;">
+        <div class="muted">${escapeHTML(b.author||'')} · ${escapeHTML(b.genre)}</div>
+        <label class="cover-upload-btn">
+          ${b.cover ? 'Trocar capa' : 'Adicionar capa'}
+          <input type="file" accept="image/*" style="display:none" onchange="handleBookCoverUpload('${b.id}', event)">
+        </label>
+      </div>
+    </div>
+    <div class="track" style="margin-top:12px;"><div class="track-fill" style="width:${pct}%"></div></div>
+    <div class="meta muted" style="margin-top:6px;">${b.currentPage}/${b.pages} páginas (${pct}%)</div>
+
+    ${b.status!=='concluido' ? `
+    <div class="field" style="margin-top:14px;"><label>Atualizar página atual</label>
+      <input id="f-currentpage" type="number" min="0" max="${b.pages}" value="${b.currentPage}">
+    </div>
+    <div class="row">
+      <button class="btn btn-secondary" onclick="updateBookProgress('${b.id}')">Atualizar página</button>
+      ${b.status==='desejo' ? `<button class="btn btn-primary" onclick="moveToReading('${b.id}')">Começar a ler</button>` : ''}
+    </div>` : `<div class="muted" style="margin-top:10px;">Concluído em ${b.endDate}</div>`}
+
+    <div class="section-title"><h3 style="font-size:13px;">Histórico</h3></div>
+    ${bookLogs.length===0 ? `<div class="muted">Nenhum registro ainda.</div>` :
+      bookLogs.slice(0,8).map(l=>`<div class="stat-line"><span>${l.date}</span><b>${l.pages}p${l.minutes?` · ${l.minutes}min`:''}</b></div>`).join('')}
+
+    <button class="btn btn-danger" style="width:100%; margin-top:16px;" onclick="deleteBookAnimated('${b.id}')">Remover livro</button>
+  `);
+}
+function handleBookCoverUpload(id, evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  const b = state.books.find(x=>x.id===id);
+  cropCoverImage(file, function(dataUrl){
+    b.cover = dataUrl;
+    const preview = document.getElementById('d-cover-preview');
+    if(preview) preview.innerHTML = `<img src="${dataUrl}">`;
+    saveState();
+    alertToast('Capa atualizada!');
+  });
+}
+function moveToReading(id){
+  const b = state.books.find(x=>x.id===id);
+  b.status='lendo'; b.startDate=todayStr();
+  closeModal(); render(); alertToast('Boa leitura! Livro movido para "Lendo agora".');
+}
+function updateBookProgress(id){
+  const b = state.books.find(x=>x.id===id);
+  const newPage = Math.max(0, Math.min(b.pages, parseInt(document.getElementById('f-currentpage').value)||0));
+  const delta = newPage - b.currentPage;
+  if(delta>0){
+    logReading(b, delta, 0);
+  } else {
+    b.currentPage = newPage;
+  }
+  checkBookCompletion(b);
+  closeModal();
+  const unlocked = checkAchievements();
+  const streakMilestone = window._pendingStreakMilestone; window._pendingStreakMilestone = null;
+  const freezeUsed = window._pendingStreakFreezeUsed; window._pendingStreakFreezeUsed = false;
+  render();
+  if(window._pendingLevelUp){
+    const lvl = window._pendingLevelUp; window._pendingLevelUp=null;
+    playLevelUpSound();
+    showCelebration({name:`Nível ${lvl} alcançado!`, desc:levelTitle(lvl), icon:'⭐'}, 'levelup');
+  } else if(streakMilestone){
+    playStreakSound();
+    showCelebration({name:`${streakMilestone} dias de ofensiva!`, desc:'Sua constância está em chamas.', icon:'🔥'}, 'levelup');
+  } else if(unlocked.length){
+    playAchievementSound();
+    showCelebration(unlocked[0], 'achievement');
+  } else if(delta>0){
+    alertToast(freezeUsed ? `+${delta*2} XP · congelamento de ofensiva usado ❄️` : `+${delta*2} XP · página atualizada!`);
+  }
+}
+function checkBookCompletion(b){
+  if(b.currentPage>=b.pages && b.status!=='concluido'){
+    b.status='concluido';
+    b.endDate=todayStr();
+    const bonus = 50 + (b.pages>400 ? 100 : 0);
+    const leveledUp = addXP(bonus);
+    if(leveledUp) window._pendingLevelUp = leveledUp;
+    window._justCompletedBookId = b.id;
+    setTimeout(()=>{
+      if(window._justCompletedBookId===b.id){ window._justCompletedBookId=null; render(); }
+    }, 1300);
+  }
+}
+function deleteBook(id){
+  state.books = state.books.filter(b=>b.id!==id);
+  state.logs = state.logs.filter(l=>l.bookId!==id);
+  closeModal(); render();
+}
+function deleteBookAnimated(id, evt){
+  if(evt){ evt.stopPropagation(); }
+  closeModal();
+  const card = document.getElementById('libcard-'+id) || document.getElementById('questcard-'+id);
+  if(!card){ deleteBook(id); return; }
+  card.classList.add('removing');
+  const particleHost = card.querySelector('.lib-book') || card;
+  const dustClass = card.classList.contains('lib-card') ? 'lib-dust' : 'quest-dust';
+  for(let i=0;i<14;i++){
+    const p = document.createElement('div');
+    p.className = dustClass;
+    const angle = Math.random()*Math.PI*2, dist = 30+Math.random()*70;
+    p.style.setProperty('--px', Math.round(Math.cos(angle)*dist)+'px');
+    p.style.setProperty('--py', Math.round(Math.sin(angle)*dist)+'px');
+    p.style.animationDelay = (Math.random()*0.18).toFixed(2)+'s';
+    particleHost.appendChild(p);
+  }
+  setTimeout(()=>{ deleteBook(id); }, 640);
+}
+
+/* =========================================================
+   REGISTRAR LEITURA (modal global)
+   ========================================================= */
+function openRegisterModal(){
+  const activeBooks = state.books.filter(b=>b.status==='lendo');
+  if(activeBooks.length===0){
+    alertToast('Adicione um livro em "Lendo agora" primeiro.');
+    return;
+  }
+  showModal(`
+    <div class="modal-head"><h3>Registrar leitura de hoje</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="field"><label>Livro</label>
+      <select id="r-book">${activeBooks.map(b=>`<option value="${b.id}">${escapeHTML(b.title)}</option>`).join('')}</select>
+    </div>
+    <div class="field"><label>Páginas lidas agora</label><input id="r-pages" type="number" min="1" placeholder="Ex: 25"></div>
+    <div class="field"><label>Tempo de leitura (minutos, opcional)</label><input id="r-minutes" type="number" min="0" placeholder="Ex: 30"></div>
+    <button class="btn btn-primary" onclick="submitRegister()">Salvar registro</button>
+  `);
+}
+function submitRegister(){
+  const bookId = document.getElementById('r-book').value;
+  const pages = parseInt(document.getElementById('r-pages').value)||0;
+  const minutes = parseInt(document.getElementById('r-minutes').value)||0;
+  if(pages<=0){ alertToast('Informe quantas páginas você leu.'); return; }
+  const b = state.books.find(x=>x.id===bookId);
+  logReading(b, pages, minutes);
+  checkBookCompletion(b);
+  closeModal();
+  const unlocked = checkAchievements();
+  const streakMilestone = window._pendingStreakMilestone; window._pendingStreakMilestone = null;
+  const freezeUsed = window._pendingStreakFreezeUsed; window._pendingStreakFreezeUsed = false;
+  render();
+  if(window._pendingLevelUp){
+    const lvl = window._pendingLevelUp; window._pendingLevelUp=null;
+    playLevelUpSound();
+    showCelebration({name:`Nível ${lvl} alcançado!`, desc:levelTitle(lvl), icon:'⭐'}, 'levelup');
+  } else if(streakMilestone){
+    playStreakSound();
+    showCelebration({name:`${streakMilestone} dias de ofensiva!`, desc:'Sua constância está em chamas.', icon:'🔥'}, 'levelup');
+  } else if(unlocked.length){
+    playAchievementSound();
+    showCelebration(unlocked[0], 'achievement');
+  } else {
+    alertToast(freezeUsed ? `+${pages*2} XP · congelamento de ofensiva usado ❄️` : `+${pages*2} XP registrado!`);
+  }
+}
+function logReading(book, pages, minutes){
+  book.currentPage = Math.min(book.pages, book.currentPage+pages);
+  state.logs.push({ date: todayStr(), bookId: book.id, pages, minutes });
+  registerStreak();
+  const leveledUp = addXP(pages*2);
+  if(leveledUp) window._pendingLevelUp = leveledUp;
+  playRegisterSound();
+}
+
+/* =========================================================
+   LISTA DE DESEJOS
+   ========================================================= */
+function renderWishlist(){
+  const list = state.books.filter(b=>b.status==='desejo');
+  return `
+  <div class="screen">
+    <h2>Lista de desejos</h2>
+    <div class="muted" style="margin-top:6px;">Livros que você quer ler em breve.</div>
+    <button class="btn btn-secondary" style="width:100%; margin:14px 0;" onclick="openAddBookModal('desejo')">+ Adicionar à lista</button>
+    ${list.length===0 ? emptyState('✨','Sua lista de desejos está vazia.') :
+      list.map((b,i)=>`
+      <div class="quest-card">
+        <div class="cover" style="background:${coverColor(b.title)}">${b.cover ? `<img src="${b.cover}">` : initials(b.title)}</div>
+        <div class="info">
+          <div class="t">${escapeHTML(b.title)}</div>
+          <div class="a">${escapeHTML(b.author||'')}</div>
+          <div class="row" style="margin-top:8px;">
+            <button class="btn btn-small btn-secondary" onclick="reorderWishlist(${i},-1)">↑</button>
+            <button class="btn btn-small btn-secondary" onclick="reorderWishlist(${i},1)">↓</button>
+            <button class="btn btn-small btn-primary" onclick="moveToReading('${b.id}')">Ler agora</button>
+          </div>
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+function reorderWishlist(indexInList, dir){
+  const wishlist = state.books.filter(b=>b.status==='desejo');
+  const target = indexInList+dir;
+  if(target<0 || target>=wishlist.length) return;
+  const a = wishlist[indexInList], b = wishlist[target];
+  const ia = state.books.indexOf(a), ib = state.books.indexOf(b);
+  [state.books[ia], state.books[ib]] = [state.books[ib], state.books[ia]];
+  render();
+}
+
+/* =========================================================
+   ESTATÍSTICAS
+   ========================================================= */
+function renderStats(){
+  const completed = state.books.filter(b=>b.status==='concluido');
+  const genreCounts = {};
+  state.logs.forEach(l=>{
+    const b = state.books.find(x=>x.id===l.bookId);
+    if(!b) return;
+    genreCounts[b.genre] = (genreCounts[b.genre]||0)+l.pages;
+  });
+  const genreEntries = Object.entries(genreCounts).sort((a,b)=>b[1]-a[1]);
+  const maxGenre = Math.max(1, ...genreEntries.map(e=>e[1]));
+
+  const avgTime = completed.length ?
+    Math.round(completed.reduce((s,b)=>{
+      const logs = state.logs.filter(l=>l.bookId===b.id);
+      return s + logs.reduce((a,l)=>a+(l.minutes||0),0);
+    },0)/completed.length) : 0;
+
+  const withDuration = completed.map(b=>({
+    b, days: b.startDate && b.endDate ? Math.max(1,daysBetween(b.startDate,b.endDate)) : null
+  })).filter(x=>x.days!==null);
+  const fastest = withDuration.length ? withDuration.reduce((a,c)=>c.days<a.days?c:a) : null;
+  const slowest = withDuration.length ? withDuration.reduce((a,c)=>c.days>a.days?c:a) : null;
+
+  const totalPagesRead = state.logs.reduce((s,l)=>s+l.pages,0);
+  const pdfSeconds = state.books.reduce((s,b)=>s+(b.readingSeconds||0),0);
+  const logMinutes = state.logs.reduce((s,l)=>s+(l.minutes||0),0);
+  const totalMinutes = Math.round(pdfSeconds/60) + logMinutes;
+  const totalSessions = state.books.reduce((s,b)=>s+(b.sessions||0),0);
+  const avgSpeed = totalMinutes>0 ? (totalPagesRead/totalMinutes).toFixed(1) : '0';
+
+  return `
+  <div class="screen">
+    <h2>Estatísticas</h2>
+
+    <div class="section-title" style="margin-top:20px;"><h3>Resumo geral</h3></div>
+    <div class="hero-stats-row">
+      <div class="hero-stat"><div class="v">${completed.length}</div><div class="l">livros concluídos</div></div>
+      <div class="hero-stat"><div class="v">${totalPagesRead}</div><div class="l">páginas lidas</div></div>
+      <div class="hero-stat"><div class="v">${totalMinutes}</div><div class="l">minutos lidos</div></div>
+    </div>
+
+    <div class="section-title"><h3>Leitura digital</h3></div>
+    <div class="stat-line"><span>Velocidade média</span><b>${avgSpeed} pág./min</b></div>
+    <div class="stat-line"><span>Sessões de leitura</span><b>${totalSessions}</b></div>
+    <div class="stat-line"><span>Maior sequência (ofensiva)</span><b>${state.profile.longestStreak||0} dias</b></div>
+    <div class="stat-line"><span>Tempo médio por livro concluído</span><b>${avgTime} min</b></div>
+
+    <div class="section-title"><h3>Gêneros mais lidos (por páginas)</h3></div>
+    ${genreEntries.length===0 ? emptyState('📊','Registre leituras para ver suas estatísticas.') :
+      genreEntries.map(([g,v])=>`
+      <div class="genre-bar-row">
+        <div class="row" style="justify-content:space-between;"><span>${escapeHTML(g)}</span><b class="muted">${v}p</b></div>
+        <div class="genre-bar-track"><div class="genre-bar-fill" style="width:${Math.round(v/maxGenre*100)}%"></div></div>
+      </div>`).join('')}
+
+    <div class="section-title"><h3>Recordes</h3></div>
+    <div class="stat-line"><span>Livro mais rápido</span><b>${fastest ? `${fastest.days}d — ${escapeHTML(fastest.b.title)}` : '—'}</b></div>
+    <div class="stat-line"><span>Livro mais demorado</span><b>${slowest ? `${slowest.days}d — ${escapeHTML(slowest.b.title)}` : '—'}</b></div>
+  </div>`;
+}
+
+/* =========================================================
+   PERFIL
+   ========================================================= */
+function renderProfile(){
+  const lvl = levelFromXP(state.profile.xp);
+  const completed = state.books.filter(b=>b.status==='concluido').length;
+  const totalPages = state.logs.reduce((s,l)=>s+l.pages,0);
+  const unlockedCount = state.achievements.length;
+  return `
+  <div class="screen">
+    <div class="char-sheet" style="--tier-color:${tierColor(lvl.level)};">
+      <label style="cursor:pointer; display:inline-block;">
+        <div class="char-avatar-frame">
+          ${state.profile.avatar ? `<img src="${state.profile.avatar}">` : `<div class="avatar-fallback">🧙</div>`}
+        </div>
+        <input type="file" accept="image/*" style="display:none" onchange="handleAvatarUpload(event)">
+      </label>
+      <div class="char-name">${escapeHTML(state.profile.name)}</div>
+      <div class="char-title">Nível ${lvl.level} · ${levelTitle(lvl.level)}</div>
+      <div class="char-hint">Toque no avatar para trocar a foto</div>
+    </div>
+
+    <div class="section-title"><h3>Atributos</h3></div>
+    <div class="stat-block-grid">
+      <div class="stat-block"><div class="v">${completed}</div><div class="l">livros concluídos</div></div>
+      <div class="stat-block"><div class="v">${totalPages}</div><div class="l">páginas lidas</div></div>
+      <div class="stat-block"><div class="v">${state.profile.streak}</div><div class="l">dias de ofensiva</div></div>
+      <div class="stat-block"><div class="v">${unlockedCount}/${ACHIEVEMENTS.length}</div><div class="l">conquistas</div></div>
+    </div>
+
+    <div class="section-title"><h3>Editar nome</h3></div>
+    <div class="field"><input id="p-name" value="${escapeHTML(state.profile.name)}" placeholder="Seu nome de leitor(a)"></div>
+    <button class="btn btn-secondary" style="width:100%;" onclick="saveName()">Salvar nome</button>
+
+    <div class="section-title"><h3>Preferências</h3></div>
+    <div class="quest-card" style="justify-content:space-between;" onclick="toggleSound()">
+      <div class="info">
+        <div class="t">🔊 Efeitos sonoros</div>
+        <div class="a">Som ao registrar leitura, subir de nível e conquistar badges</div>
+      </div>
+      <div class="btn btn-small ${state.profile.soundEnabled?'btn-primary':'btn-ghost'}">${state.profile.soundEnabled?'Ativado':'Desativado'}</div>
+    </div>
+
+    <div class="section-title"><h3>Metas</h3></div>
+    <div class="field"><label>Meta diária (páginas)</label><input id="p-daily" type="number" min="1" value="${state.profile.dailyGoalPages}"></div>
+    <div class="field"><label>Meta mensal (livros)</label><input id="p-monthly" type="number" min="1" value="${state.profile.monthlyGoalBooks}"></div>
+    <div class="field"><label>Meta anual (livros)</label><input id="p-yearly" type="number" min="1" value="${state.profile.yearlyGoalBooks}"></div>
+    <button class="btn btn-secondary" style="width:100%;" onclick="saveGoals()">Salvar metas</button>
+
+    <div class="section-title"><h3>Conquistas</h3></div>
+    <div class="badge-grid">
+      ${ACHIEVEMENTS.map(a=>{
+        const unlocked = state.achievements.find(x=>x.id===a.id);
+        return `<div class="badge ${unlocked?'':'locked'}">
+          <div class="ic">${a.icon}</div>
+          <div class="n">${a.name}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+function saveName(){
+  state.profile.name = document.getElementById('p-name').value.trim()||'Aventureiro(a)';
+  render(); alertToast('Nome atualizado!');
+}
+function saveGoals(){
+  state.profile.dailyGoalPages = parseInt(document.getElementById('p-daily').value)||20;
+  state.profile.monthlyGoalBooks = parseInt(document.getElementById('p-monthly').value)||2;
+  state.profile.yearlyGoalBooks = parseInt(document.getElementById('p-yearly').value)||12;
+  render(); alertToast('Metas atualizadas!');
+}
+function handleAvatarUpload(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = function(){
+      const size = 240;
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const side = Math.min(img.width, img.height);
+      const sx = (img.width-side)/2, sy = (img.height-side)/2;
+      ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+      state.profile.avatar = canvas.toDataURL('image/jpeg', 0.9);
+      render();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+/* =========================================================
+   MODAL / TOAST / CELEBRAÇÃO
+   ========================================================= */
+function showModal(innerHTML){
+  closeModal();
+  const div = document.createElement('div');
+  div.className='modal-backdrop';
+  div.id='modal-backdrop';
+  div.onclick = (e)=>{ if(e.target.id==='modal-backdrop') closeModal(); };
+  div.innerHTML = `<div class="modal-sheet">${innerHTML}</div>`;
+  document.body.appendChild(div);
+}
+function closeModal(){
+  const el = document.getElementById('modal-backdrop');
+  if(el) el.remove();
+}
+function alertToast(msg){
+  const el = document.createElement('div');
+  el.className='toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 2600);
+}
+function showCelebration(item, type){
+  const div = document.createElement('div');
+  div.className='celebrate-backdrop';
+  div.onclick = ()=>div.remove();
+  div.innerHTML = `
+    <div class="celebrate-card">
+      <div class="big-ic">${item.icon}</div>
+      <h3 style="margin-top:10px;">${type==='levelup' ? item.name : 'Conquista desbloqueada!'}</h3>
+      <div class="muted" style="margin-top:6px;">${type==='levelup' ? item.desc : item.name+' — '+item.desc}</div>
+      <button class="btn btn-primary" style="margin-top:18px;" onclick="this.closest('.celebrate-backdrop').remove()">Continuar</button>
+    </div>`;
+  document.body.appendChild(div);
+}
+
+/* =========================================================
+   PDF.JS — CONFIGURAÇÃO
+   ========================================================= */
+if(window['pdfjsLib']){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+/* =========================================================
+   UPLOAD DE PDF — ENTRA NA BIBLIOTECA COMO LIVRO
+   ========================================================= */
+function readFileAsDataURL(file){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+async function renderPageToDataURL(pdf, pageNum, targetHeight){
+  const page = await pdf.getPage(pageNum);
+  const viewport1 = page.getViewport({scale:1});
+  const scale = targetHeight/viewport1.height;
+  const viewport = page.getViewport({scale});
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width; canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d');
+  await page.render({canvasContext:ctx, viewport}).promise;
+  return canvas.toDataURL('image/jpeg',0.85);
+}
+function showUploadSpinner(show){
+  const el = document.getElementById('upload-zone-inner');
+  if(!el) return;
+  el.innerHTML = show
+    ? `<div class="upload-spinner"></div><div class="t" style="margin-top:10px;">Processando PDF…</div>`
+    : `<div class="ic">📤</div><div class="t">Arraste um PDF aqui ou toque para escolher</div><div class="s">Vira um livro na sua estante, com leitura direto no app</div>`;
+}
+async function processPdfUpload(file){
+  if(!file) return;
+  const isPdf = file.type==='application/pdf' || /\.pdf$/i.test(file.name);
+  if(!isPdf){ alertToast('Apenas arquivos PDF são aceitos.'); return; }
+  if(!window['pdfjsLib']){ alertToast('Não foi possível carregar o leitor de PDF. Verifique sua conexão.'); return; }
+  showUploadSpinner(true);
+  try{
+    const dataUrl = await readFileAsDataURL(file);
+    const base64 = dataUrl.split(',')[1];
+    const bytes = atob(base64);
+    const arr = new Uint8Array(bytes.length);
+    for(let i=0;i<bytes.length;i++) arr[i]=bytes.charCodeAt(i);
+    const pdf = await pdfjsLib.getDocument({data:arr}).promise;
+    const numPages = pdf.numPages;
+    const coverDataUrl = await renderPageToDataURL(pdf, 1, 260).catch(()=>null);
+    let title = file.name.replace(/\.pdf$/i,'');
+    try{
+      const meta = await pdf.getMetadata();
+      if(meta && meta.info && meta.info.Title) title = meta.info.Title;
+    }catch(e){}
+    const book = {
+      id:'b'+Date.now(),
+      title, author:'', pages:numPages, genre:'PDF', status:'lendo',
+      cover: coverDataUrl, currentPage:0, startDate:todayStr(), endDate:null,
+      source:'pdf', pdfData: base64, fileName:file.name, uploadDate: todayStr(),
+      bookmarks:[], highlights:[], notes:[], readingSeconds:0, sessions:0,
+      readerState:{ lastPage:1, zoom:1.1 }
+    };
+    state.books.push(book);
+    let saved = true;
+    try{ saveState(); }catch(e){ saved = false; }
+    render();
+    alertToast(saved ? 'PDF adicionado! Toque no livro para começar a ler.' : 'Livro adicionado, mas o arquivo é grande demais para salvar localmente — pode se perder ao recarregar a página.');
+  } catch(err){
+    console.error(err);
+    alertToast('Não foi possível processar esse PDF.');
+    showUploadSpinner(false);
+  }
+}
+function handlePdfInputChange(evt){
+  const file = evt.target.files[0];
+  processPdfUpload(file);
+  evt.target.value='';
+}
+function handlePdfDrop(evt){
+  const file = evt.dataTransfer.files[0];
+  processPdfUpload(file);
+}
+
+/* =========================================================
+   LEITOR DE PDF — ESTADO E CICLO DE VIDA
+   ========================================================= */
+let READER = null;
+
+async function openReader(bookId){
+  const book = state.books.find(x=>x.id===bookId);
+  if(!book || !book.pdfData){ alertToast('PDF não encontrado para este livro.'); return; }
+  if(!window['pdfjsLib']){ alertToast('Não foi possível carregar o leitor de PDF.'); return; }
+  closeModal();
+  let arr;
+  try{
+    const bytes = atob(book.pdfData);
+    arr = new Uint8Array(bytes.length);
+    for(let i=0;i<bytes.length;i++) arr[i]=bytes.charCodeAt(i);
+  }catch(e){ alertToast('Este PDF não pôde ser aberto.'); return; }
+
+  let pdf;
+  try{ pdf = await pdfjsLib.getDocument({data:arr}).promise; }
+  catch(e){ alertToast('Não foi possível abrir este PDF.'); return; }
+
+  READER = {
+    book, pdf,
+    scale: (book.readerState && book.readerState.zoom) || 1.1,
+    currentPage: (book.readerState && book.readerState.lastPage) || 1,
+    totalPages: pdf.numPages,
+    sidebarOpen:false, sidebarTab:'thumbs',
+    renderedPages:new Set(),
+    sessionStart: Date.now(),
+    secondsThisSession:0,
+    maxPageReached: book.currentPage || 0,
+    outline:null,
+  };
+  buildReaderShell();
+  scrollToPage(READER.currentPage, false);
+  onReaderPageChanged(READER.currentPage, true);
+  startReaderTimer();
+}
+
+function buildReaderShell(){
+  const book = READER.book;
+  const div = document.createElement('div');
+  div.id='reader-overlay';
+  div.innerHTML = `
+    <div class="reader-topbar">
+      <button class="reader-icon-btn" onclick="closeReader()">✕</button>
+      <div class="rt-title">${escapeHTML(book.title)}</div>
+      <div class="rt-page" id="reader-page-indicator">1 / ${READER.totalPages}</div>
+      <button class="reader-icon-btn" id="reader-bookmark-btn" onclick="toggleBookmarkCurrentPage()">🔖</button>
+      <button class="reader-icon-btn" onclick="toggleReaderSidebar()">☰</button>
+    </div>
+    <div class="reader-progress-track"><div class="reader-progress-fill" id="reader-progress-fill" style="width:0%"></div></div>
+    <div class="reader-body">
+      <div class="reader-scroll" id="reader-scroll"></div>
+      <div class="reader-sidebar" id="reader-sidebar">
+        <div class="reader-sidebar-tabs">
+          <button data-tab="thumbs" class="active" onclick="setSidebarTab('thumbs')">Páginas</button>
+          <button data-tab="toc" onclick="setSidebarTab('toc')">Índice</button>
+          <button data-tab="marks" onclick="setSidebarTab('marks')">Marcadores</button>
+          <button data-tab="notes" onclick="setSidebarTab('notes')">Notas</button>
+        </div>
+        <div class="reader-sidebar-content" id="reader-sidebar-content"></div>
+      </div>
+    </div>
+    <div class="reader-bottombar">
+      <button class="reader-icon-btn" onclick="zoomReader(-0.15)">−</button>
+      <div class="reader-zoom-label" id="reader-zoom-label">${Math.round(READER.scale*100)}%</div>
+      <button class="reader-icon-btn" onclick="zoomReader(0.15)">+</button>
+      <button class="reader-icon-btn" onclick="toggleReaderFullscreen()">⛶</button>
+    </div>
+  `;
+  document.body.appendChild(div);
+
+  const scrollEl = document.getElementById('reader-scroll');
+  for(let n=1;n<=READER.totalPages;n++){
+    const wrap = document.createElement('div');
+    wrap.className='reader-page-wrap';
+    wrap.dataset.page = n;
+    wrap.style.width = '90vw';
+    wrap.style.maxWidth = '760px';
+    wrap.style.minHeight = '260px';
+    scrollEl.appendChild(wrap);
+  }
+  READER.io = new IntersectionObserver(onPageIntersect, {root:scrollEl, rootMargin:'500px 0px', threshold:0.01});
+  scrollEl.querySelectorAll('.reader-page-wrap').forEach(el=>READER.io.observe(el));
+  scrollEl.addEventListener('scroll', onReaderScroll);
+  scrollEl.addEventListener('wheel', onReaderWheel, {passive:false});
+  document.addEventListener('mouseup', onReaderSelectionEnd);
+  document.addEventListener('touchend', onReaderSelectionEnd);
+  refreshBookmarkBtn();
+  renderReaderSidebar();
+}
+
+function onPageIntersect(entries){
+  entries.forEach(en=>{
+    if(en.isIntersecting){
+      const n = parseInt(en.target.dataset.page);
+      if(READER && !READER.renderedPages.has(n)) renderPage(n);
+    }
+  });
+}
+
+async function renderPage(n){
+  if(!READER || READER.renderedPages.has(n)) return;
+  READER.renderedPages.add(n);
+  const wrap = document.querySelector(`.reader-page-wrap[data-page="${n}"]`);
+  if(!wrap) return;
+  let page, viewport;
+  try{
+    page = await READER.pdf.getPage(n);
+    viewport = page.getViewport({scale:READER.scale});
+  }catch(e){ return; }
+  wrap.style.width = viewport.width+'px';
+  wrap.style.height = viewport.height+'px';
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width; canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d');
+  try{ await page.render({canvasContext:ctx, viewport}).promise; }catch(e){}
+  wrap.innerHTML='';
+  wrap.appendChild(canvas);
+  const pnum = document.createElement('div');
+  pnum.className='reader-page-number'; pnum.textContent = n;
+  wrap.appendChild(pnum);
+
+  try{
+    const textContent = await page.getTextContent();
+    const textLayerDiv = document.createElement('div');
+    textLayerDiv.className='reader-text-layer';
+    textLayerDiv.style.width = viewport.width+'px';
+    textLayerDiv.style.height = viewport.height+'px';
+    textLayerDiv.style.setProperty('--scale-factor', String(READER.scale));
+    wrap.appendChild(textLayerDiv);
+    const task = pdfjsLib.renderTextLayer({
+      textContentSource: textContent,
+      textContent: textContent,
+      container: textLayerDiv,
+      viewport: viewport,
+      textDivs: []
+    });
+    if(task && task.promise) await task.promise;
+  }catch(e){ /* segue apenas com a página renderizada, sem seleção de texto */ }
+
+  applyStoredHighlights(n, wrap);
+}
+function applyStoredHighlights(n, wrapEl){
+  if(!READER) return;
+  const hls = (READER.book.highlights||[]).filter(h=>h.page===n);
+  if(!hls.length) return;
+  const spans = wrapEl.querySelectorAll('.reader-text-layer span');
+  hls.forEach(h=>{
+    spans.forEach(sp=>{
+      const t = (sp.textContent||'').trim();
+      if(t.length>2 && h.text && h.text.includes(t)) sp.classList.add('reader-hl');
+    });
+  });
+}
+
+/* ---------- SCROLL / PÁGINA ATUAL ---------- */
+let readerScrollTimeout=null;
+function onReaderScroll(){
+  if(readerScrollTimeout) return;
+  readerScrollTimeout = setTimeout(()=>{ readerScrollTimeout=null; updateCurrentPageFromScroll(); }, 150);
+}
+function updateCurrentPageFromScroll(){
+  const scrollEl = document.getElementById('reader-scroll');
+  if(!scrollEl || !READER) return;
+  const top = scrollEl.getBoundingClientRect().top;
+  let best=null, bestDist=Infinity;
+  scrollEl.querySelectorAll('.reader-page-wrap').forEach(el=>{
+    const r = el.getBoundingClientRect();
+    const dist = Math.abs(r.top-top-40);
+    if(dist<bestDist){ bestDist=dist; best=el; }
+  });
+  if(best){
+    const n = parseInt(best.dataset.page);
+    if(n!==READER.currentPage){ READER.currentPage=n; onReaderPageChanged(n); }
+  }
+}
+function onReaderPageChanged(n, silent){
+  READER.currentPage = n;
+  const ind = document.getElementById('reader-page-indicator');
+  if(ind) ind.textContent = `${n} / ${READER.totalPages}`;
+  const fill = document.getElementById('reader-progress-fill');
+  if(fill) fill.style.width = Math.round(n/READER.totalPages*100)+'%';
+  refreshBookmarkBtn();
+  if(READER.sidebarOpen && READER.sidebarTab==='thumbs') renderReaderSidebar();
+  if(!silent && n>READER.maxPageReached){
+    const delta = n-READER.maxPageReached;
+    READER.maxPageReached = n;
+    awardReadingProgress(READER.book, delta, n);
+  }
+}
+function scrollToPage(n, smooth){
+  const wrap = document.querySelector(`.reader-page-wrap[data-page="${n}"]`);
+  if(!wrap) return;
+  if(!READER.renderedPages.has(n)) renderPage(n);
+  wrap.scrollIntoView({behavior: smooth?'smooth':'auto', block:'start'});
+}
+
+/* ---------- PROGRESSO / XP EM TEMPO REAL ---------- */
+function awardReadingProgress(book, pagesDelta, upToPage){
+  book.currentPage = Math.max(book.currentPage||0, upToPage);
+  const today = todayStr();
+  const todayLog = state.logs.find(l=>l.date===today && l.bookId===book.id);
+  if(todayLog){ todayLog.pages += pagesDelta; }
+  else { state.logs.push({date:today, bookId:book.id, pages:pagesDelta, minutes:0}); }
+  registerStreak();
+  const leveledUpFromPages = addXP(pagesDelta*2);
+  checkBookCompletion(book);
+  const leveledUpFromBonus = window._pendingLevelUp; window._pendingLevelUp = null;
+  const leveledUp = leveledUpFromBonus || leveledUpFromPages;
+  const unlocked = checkAchievements();
+  const streakMilestone = window._pendingStreakMilestone; window._pendingStreakMilestone = null;
+  saveState();
+  playRegisterSound();
+  if(leveledUp){
+    playLevelUpSound();
+    showCelebration({name:`Nível ${leveledUp} alcançado!`, desc:levelTitle(leveledUp), icon:'⭐'}, 'levelup');
+  } else if(book.status==='concluido' && book.endDate===today){
+    playAchievementSound();
+    showCelebration({name:'Livro concluído!', desc:book.title, icon:'📕'}, 'levelup');
+  } else if(streakMilestone){
+    playStreakSound();
+    showCelebration({name:`${streakMilestone} dias de ofensiva!`, desc:'Sua constância está em chamas.', icon:'🔥'}, 'levelup');
+  } else if(unlocked.length){
+    playAchievementSound();
+    showCelebration(unlocked[0], 'achievement');
+  }
+}
+
+/* ---------- ZOOM / TELA CHEIA ---------- */
+function zoomReader(delta){
+  READER.scale = Math.max(0.5, Math.min(3, +(READER.scale+delta).toFixed(2)));
+  const label = document.getElementById('reader-zoom-label');
+  if(label) label.textContent = Math.round(READER.scale*100)+'%';
+  rerenderAllPages();
+}
+function rerenderAllPages(){
+  const rendered = Array.from(READER.renderedPages);
+  READER.renderedPages.clear();
+  document.querySelectorAll('.reader-page-wrap').forEach(w=>{ w.innerHTML=''; });
+  rendered.forEach(n=>renderPage(n));
+}
+function onReaderWheel(evt){
+  if(evt.ctrlKey || evt.metaKey){
+    evt.preventDefault();
+    zoomReader(evt.deltaY<0 ? 0.1 : -0.1);
+  }
+}
+function toggleReaderFullscreen(){
+  const el = document.getElementById('reader-overlay');
+  if(!el) return;
+  if(!document.fullscreenElement){ el.requestFullscreen?.().catch(()=>{}); }
+  else { document.exitFullscreen?.().catch(()=>{}); }
+}
+
+/* ---------- SIDEBAR: MINIATURAS / ÍNDICE / MARCADORES / NOTAS ---------- */
+function toggleReaderSidebar(){
+  READER.sidebarOpen = !READER.sidebarOpen;
+  document.getElementById('reader-sidebar').classList.toggle('open', READER.sidebarOpen);
+  if(READER.sidebarOpen) renderReaderSidebar();
+}
+function setSidebarTab(tab){
+  READER.sidebarTab = tab;
+  document.querySelectorAll('.reader-sidebar-tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  renderReaderSidebar();
+}
+function renderReaderSidebar(){
+  const el = document.getElementById('reader-sidebar-content');
+  if(!el || !READER) return;
+  const tab = READER.sidebarTab;
+  if(tab==='thumbs'){
+    let html='';
+    for(let n=1;n<=READER.totalPages;n++){
+      html += `<div class="reader-thumb ${n===READER.currentPage?'current':''}" onclick="scrollToPage(${n},true)">
+        <div class="ph">${n}</div><div class="n">Página ${n}</div></div>`;
+    }
+    el.innerHTML = html;
+  } else if(tab==='toc'){
+    if(READER.outline){ renderTocList(el, READER.outline); }
+    else {
+      el.innerHTML = `<div class="reader-empty-side">Carregando índice…</div>`;
+      READER.pdf.getOutline().then(outline=>{
+        READER.outline = outline||[];
+        if(READER.sidebarTab==='toc') renderTocList(el, READER.outline);
+      }).catch(()=>{ READER.outline=[]; if(READER.sidebarTab==='toc') el.innerHTML = `<div class="reader-empty-side">Índice indisponível para este PDF.</div>`; });
+    }
+  } else if(tab==='marks'){
+    const marks = (READER.book.bookmarks||[]).slice().sort((a,c)=>a.page-c.page);
+    el.innerHTML = marks.length===0 ? `<div class="reader-empty-side">Nenhum marcador ainda.<br>Toque no 🔖 para marcar a página atual.</div>` :
+      marks.map(m=>`<div class="reader-thumb" onclick="scrollToPage(${m.page},true)"><div class="ph">🔖</div><div class="n">Página ${m.page}</div></div>`).join('');
+  } else if(tab==='notes'){
+    renderNotesTab(el);
+  }
+}
+function renderTocList(el, outline){
+  if(!outline.length){ el.innerHTML = `<div class="reader-empty-side">Este PDF não possui índice.</div>`; return; }
+  el.innerHTML = outline.map((o,i)=>`<div class="reader-toc-item" onclick="jumpToOutlineIndex(${i})">${escapeHTML(o.title||'')}</div>`).join('');
+}
+async function jumpToOutlineIndex(i){
+  try{
+    const item = READER.outline[i];
+    let dest = item.dest;
+    if(typeof dest==='string') dest = await READER.pdf.getDestination(dest);
+    if(Array.isArray(dest) && dest[0]){
+      const idx = await READER.pdf.getPageIndex(dest[0]);
+      scrollToPage(idx+1, true);
+    }
+  }catch(e){ alertToast('Não foi possível abrir este item do índice.'); }
+}
+
+/* ---------- MARCADORES ---------- */
+function toggleBookmarkCurrentPage(){
+  const b = READER.book;
+  b.bookmarks = b.bookmarks||[];
+  const idx = b.bookmarks.findIndex(m=>m.page===READER.currentPage);
+  if(idx>=0) b.bookmarks.splice(idx,1); else b.bookmarks.push({page:READER.currentPage, createdAt:todayStr()});
+  saveState();
+  refreshBookmarkBtn();
+  if(READER.sidebarOpen && READER.sidebarTab==='marks') renderReaderSidebar();
+}
+function refreshBookmarkBtn(){
+  const btn = document.getElementById('reader-bookmark-btn');
+  if(!btn || !READER) return;
+  const has = (READER.book.bookmarks||[]).some(m=>m.page===READER.currentPage);
+  btn.style.color = has ? 'var(--gold)' : '';
+}
+
+/* ---------- SELEÇÃO DE TEXTO: DESTACAR / COPIAR / NOTA / CITAÇÃO ---------- */
+function onReaderSelectionEnd(){
+  removeSelectionMenu();
+  if(!READER) return;
+  const sel = window.getSelection();
+  if(!sel || sel.isCollapsed || !sel.toString().trim()) return;
+  const overlay = document.getElementById('reader-overlay');
+  if(!overlay || !sel.anchorNode || !overlay.contains(sel.anchorNode)) return;
+  const range = sel.getRangeAt(0);
+  const rect = range.getBoundingClientRect();
+  if(!rect || (rect.width===0 && rect.height===0)) return;
+  showSelectionMenu(rect, sel.toString().trim());
+}
+function showSelectionMenu(rect, text){
+  const menu = document.createElement('div');
+  menu.className='selection-menu';
+  menu.id='selection-menu';
+  menu.style.left = Math.max(8, Math.min(window.innerWidth-220, rect.left))+'px';
+  menu.style.top = Math.max(8, rect.top-46)+'px';
+  const enc = encodeURIComponent(text);
+  menu.innerHTML = `
+    <button onclick="applyHighlightToSelection('${enc}')">🖍 Destacar</button>
+    <button onclick="copySelectionText('${enc}')">📋 Copiar</button>
+    <button onclick="openNoteForSelection('${enc}')">📝 Nota</button>
+    <button onclick="saveQuoteFromSelection('${enc}')">❝ Citação</button>
+  `;
+  document.body.appendChild(menu);
+}
+function removeSelectionMenu(){
+  const m = document.getElementById('selection-menu');
+  if(m) m.remove();
+}
+function applyHighlightToSelection(enc){
+  const text = decodeURIComponent(enc);
+  const b = READER.book;
+  b.highlights = b.highlights||[];
+  b.highlights.push({id:'h'+Date.now(), page:READER.currentPage, text, color:'gold', createdAt:todayStr()});
+  saveState();
+  removeSelectionMenu();
+  window.getSelection().removeAllRanges();
+  const wrap = document.querySelector(`.reader-page-wrap[data-page="${READER.currentPage}"]`);
+  if(wrap) applyStoredHighlights(READER.currentPage, wrap);
+  alertToast('Trecho destacado.');
+}
+function copySelectionText(enc){
+  const text = decodeURIComponent(enc);
+  removeSelectionMenu();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>alertToast('Copiado!')).catch(()=>alertToast('Não foi possível copiar.'));
+  } else {
+    alertToast('Cópia não suportada neste navegador.');
+  }
+}
+function openNoteForSelection(enc){
+  const text = decodeURIComponent(enc);
+  removeSelectionMenu();
+  window.getSelection().removeAllRanges();
+  READER.sidebarOpen = true;
+  document.getElementById('reader-sidebar').classList.add('open');
+  setSidebarTab('notes');
+  setTimeout(()=>{
+    const ta = document.getElementById('new-note-text');
+    if(ta) ta.value = `"${text}" — `;
+  }, 50);
+}
+function saveQuoteFromSelection(enc){
+  const text = decodeURIComponent(enc);
+  const b = READER.book;
+  b.notes = b.notes||[];
+  b.notes.push({id:'n'+Date.now(), text:`❝ ${text} ❞`, page:READER.currentPage, createdAt:todayStr(), isQuote:true});
+  saveState();
+  removeSelectionMenu();
+  window.getSelection().removeAllRanges();
+  alertToast('Citação salva nas notas.');
+}
+
+/* ---------- NOTAS ---------- */
+function renderNotesTab(el){
+  const b = READER.book;
+  const notes = (b.notes||[]).slice().reverse();
+  el.innerHTML = `
+    <div class="field"><textarea id="new-note-text" rows="3" class="reader-note-input" placeholder="Escreva uma nota sobre a página ${READER.currentPage}..."></textarea></div>
+    <button class="btn btn-secondary btn-small" style="width:100%;" onclick="addNote()">+ Adicionar nota</button>
+    <div style="margin-top:14px;">
+      ${notes.length===0 ? `<div class="reader-empty-side">Nenhuma nota ainda.</div>` :
+        notes.map(n=>`
+        <div class="note-item">
+          <div class="meta"><span>pág. ${n.page}</span><span>${n.createdAt}</span></div>
+          <div class="txt">${escapeHTML(n.text)}</div>
+          <div class="actions">
+            <button onclick="scrollToPage(${n.page},true)">Ir à página</button>
+            <button onclick="deleteNote('${n.id}')">Excluir</button>
+          </div>
+        </div>`).join('')}
+    </div>
+  `;
+}
+function addNote(){
+  const ta = document.getElementById('new-note-text');
+  if(!ta) return;
+  const text = ta.value.trim();
+  if(!text) return;
+  const b = READER.book;
+  b.notes = b.notes||[];
+  b.notes.push({id:'n'+Date.now(), text, page:READER.currentPage, createdAt:todayStr()});
+  saveState();
+  renderNotesTab(document.getElementById('reader-sidebar-content'));
+  alertToast('Nota salva.');
+}
+function deleteNote(id){
+  const b = READER.book;
+  b.notes = (b.notes||[]).filter(n=>n.id!==id);
+  saveState();
+  renderNotesTab(document.getElementById('reader-sidebar-content'));
+}
+
+/* ---------- TEMPO DE LEITURA / SESSÕES / FECHAMENTO ---------- */
+function startReaderTimer(){
+  READER.timerInterval = setInterval(()=>{
+    if(!READER) return;
+    if(document.visibilityState!=='visible') return;
+    READER.secondsThisSession = (READER.secondsThisSession||0)+1;
+    READER.book.readingSeconds = (READER.book.readingSeconds||0)+1;
+    if(READER.secondsThisSession % 20===0) saveState();
+  }, 1000);
+}
+function closeReader(){
+  if(!READER) return;
+  if(READER.secondsThisSession>5){ READER.book.sessions = (READER.book.sessions||0)+1; }
+  READER.book.readerState = { lastPage: READER.currentPage, zoom: READER.scale };
+  clearInterval(READER.timerInterval);
+  if(READER.io) READER.io.disconnect();
+  document.removeEventListener('mouseup', onReaderSelectionEnd);
+  document.removeEventListener('touchend', onReaderSelectionEnd);
+  document.getElementById('reader-overlay')?.remove();
+  saveState();
+  READER = null;
+  render();
+}
+
+/* =========================================================
+   INICIALIZAÇÃO
+   ========================================================= */
+render();
+</script>
+</body>
+</html>
